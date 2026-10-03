@@ -7,13 +7,14 @@ import shutil
 from pathlib import Path
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, text, String, DateTime, ForeignKey
+from sqlalchemy import create_engine, text, String, DateTime, ForeignKey, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, Session
 from redis import Redis
 from dotenv import load_dotenv
 from pydantic import BaseModel, EmailStr
 
 from auth import hash_password, verify_password, create_access_token, decode_access_token
+from brand_brain import extract_colors
 
 load_dotenv()
 
@@ -67,10 +68,25 @@ class Brand(Base):
     workspace_id: Mapped[str] = mapped_column(String, ForeignKey("workspaces.id"))
     name: Mapped[str] = mapped_column(String)
     logo_url: Mapped[str] = mapped_column(String, nullable=True)
+    colors: Mapped[dict] = mapped_column(JSON, nullable=True)
+    personality: Mapped[dict] = mapped_column(JSON, nullable=True)
+    audience: Mapped[dict] = mapped_column(JSON, nullable=True)
+    rules: Mapped[dict] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
 Base.metadata.create_all(bind=engine)
+
+# Migration: إضافة عمود colors إذا لم يكن موجودًا
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE brands ADD COLUMN IF NOT EXISTS colors JSON"))
+        conn.execute(text("ALTER TABLE brands ADD COLUMN IF NOT EXISTS personality JSON"))
+        conn.execute(text("ALTER TABLE brands ADD COLUMN IF NOT EXISTS audience JSON"))
+        conn.execute(text("ALTER TABLE brands ADD COLUMN IF NOT EXISTS rules JSON"))
+        conn.commit()
+except Exception as e:
+    print(f"[MIGRATION] {e}")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
@@ -194,6 +210,52 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         "workspace": {"id": workspace.id, "name": workspace.name, "plan": workspace.plan, "credits": workspace.credits} if workspace else None,
     }
 
+
+
+# ============ Brain Helpers ============
+def compute_brain_score(brand: Brand) -> int:
+    total = 12
+    filled = 0
+    if brand.logo_url:
+        filled += 1
+    if brand.colors and brand.colors.get("palette"):
+        filled += 1
+
+    p = brand.personality or {}
+    if p.get("tone") and len(p.get("tone", [])) >= 2:
+        filled += 1
+    if p.get("communication_style"):
+        filled += 1
+    if p.get("emotional_territory"):
+        filled += 1
+
+    a = brand.audience or {}
+    for key in ["age_range", "gender", "market", "language", "dialect"]:
+        if a.get(key):
+            filled += 1
+
+    r = brand.rules or {}
+    if r.get("visual_defaults"):
+        filled += 1
+    if r.get("content_defaults"):
+        filled += 1
+
+    return round((filled / total) * 100)
+
+
+def serialize_brand(brand: Brand) -> dict:
+    return {
+        "id": brand.id,
+        "name": brand.name,
+        "logo_url": brand.logo_url,
+        "colors": brand.colors,
+        "personality": brand.personality,
+        "audience": brand.audience,
+        "rules": brand.rules,
+        "brain_score": compute_brain_score(brand),
+        "created_at": brand.created_at.isoformat(),
+    }
+
 # ============ Brands ============
 class CreateBrandRequest(BaseModel):
     name: str
@@ -215,12 +277,7 @@ def create_brand(
     db.commit()
     db.refresh(brand)
 
-    return {
-        "id": brand.id,
-        "name": brand.name,
-        "logo_url": brand.logo_url,
-        "created_at": brand.created_at.isoformat(),
-    }
+    return serialize_brand(brand)
 
 
 @app.get("/brands")
@@ -229,15 +286,7 @@ def list_brands(
     db: Session = Depends(get_db),
 ):
     brands = db.query(Brand).filter(Brand.workspace_id == user.workspace_id).all()
-    return [
-        {
-            "id": b.id,
-            "name": b.name,
-            "logo_url": b.logo_url,
-            "created_at": b.created_at.isoformat(),
-        }
-        for b in brands
-    ]
+    return [serialize_brand(b) for b in brands]
 
 
 @app.get("/brands/{brand_id}")
@@ -252,12 +301,7 @@ def get_brand(
     ).first()
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
-    return {
-        "id": brand.id,
-        "name": brand.name,
-        "logo_url": brand.logo_url,
-        "created_at": brand.created_at.isoformat(),
-    }
+    return serialize_brand(brand)
 
 # ============ Uploads ============
 UPLOAD_DIR = Path("uploads")
@@ -289,13 +333,47 @@ def upload_brand_logo(
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    # استخراج الألوان من الشعار
+    extracted = extract_colors(str(filepath), num_colors=5)
+
     # تحديث قاعدة البيانات
     brand.logo_url = f"/uploads/{filename}"
+    brand.colors = {"palette": extracted}
     db.commit()
     db.refresh(brand)
 
-    return {
-        "id": brand.id,
-        "name": brand.name,
-        "logo_url": brand.logo_url,
-    }
+    return serialize_brand(brand)
+
+
+
+# ============ Brand Brain ============
+class UpdateBrainRequest(BaseModel):
+    personality: dict | None = None
+    audience: dict | None = None
+    rules: dict | None = None
+
+
+@app.patch("/brands/{brand_id}/brain")
+def update_brain(
+    brand_id: str,
+    data: UpdateBrainRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    if data.personality is not None:
+        brand.personality = data.personality
+    if data.audience is not None:
+        brand.audience = data.audience
+    if data.rules is not None:
+        brand.rules = data.rules
+
+    db.commit()
+    db.refresh(brand)
+    return serialize_brand(brand)

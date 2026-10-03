@@ -8,6 +8,8 @@ type Brand = {
   id: string;
   name: string;
   logo_url: string | null;
+  colors: { palette: string[] } | null;
+  brain_score: number;
   created_at: string;
 };
 
@@ -156,17 +158,57 @@ export default function BrandDetailPage() {
           </div>
         )}
 
+        {brand.colors?.palette && brand.colors.palette.length > 0 && (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 mb-6">
+            <h2 className="text-2xl font-bold mb-2">Brand Colors</h2>
+            <p className="text-gray-400 mb-6 text-sm">
+              Extracted automatically from your logo.
+            </p>
+            <div className="flex gap-3 flex-wrap">
+              {brand.colors.palette.map((color, i) => (
+                <div key={i} className="text-center">
+                  <div
+                    className="w-20 h-20 rounded-xl border border-white/20 shadow-lg"
+                    style={{ backgroundColor: color }}
+                  />
+                  <p className="text-xs text-gray-400 mt-2 font-mono">{color}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
-          <h2 className="text-2xl font-bold mb-3">Next Step: Brand Brain</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Brand Brain</h2>
+            <span className="text-3xl font-bold text-blue-400">{brand.brain_score ?? 0}%</span>
+          </div>
+          <div className="w-full h-3 bg-white/10 rounded-full mb-6 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500"
+              style={{ width: `${brand.brain_score ?? 0}%` }}
+            />
+          </div>
           <p className="text-gray-400 mb-6">
-            After uploading your logo, we will analyze its colors and style, and build a digital brain for your brand — automatically.
+            {(brand.brain_score ?? 0) < 100
+              ? 'Complete your Brand Brain to unlock the full power of the platform.'
+              : 'Your Brand Brain is complete! Ready to create campaigns.'}
           </p>
-          <button
-            disabled
-            className="px-6 py-3 bg-purple-500/50 rounded-lg font-semibold cursor-not-allowed"
-          >
-            Build Brand Brain (coming soon)
-          </button>
+          {(brand.brain_score ?? 0) < 100 ? (
+            <Link
+              href={`/brands/${brand.id}/brain`}
+              className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg font-semibold hover:opacity-90 transition"
+            >
+              Complete Brand Brain
+            </Link>
+          ) : (
+            <button
+              disabled
+              className="px-6 py-3 bg-purple-500/50 rounded-lg font-semibold cursor-not-allowed"
+            >
+              Create Campaign (coming soon)
+            </button>
+          )}
         </div>
       </div>
     </main>
