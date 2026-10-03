@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 type Workspace = {
   id: string;
@@ -15,10 +16,19 @@ type User = {
   email: string;
 };
 
+type Brand = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  created_at: string;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loadingBrands, setLoadingBrands] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -28,7 +38,6 @@ export default function DashboardPage() {
       return;
     }
 
-    // تحقق من التوكن مع الـBackend
     fetch('http://localhost:8000/auth/me', {
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -53,6 +62,16 @@ export default function DashboardPage() {
       .catch(() => {
         router.push('/login');
       });
+
+    fetch('http://localhost:8000/brands', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setBrands(data);
+        setLoadingBrands(false);
+      })
+      .catch(() => setLoadingBrands(false));
   }, [router]);
 
   const handleLogout = () => {
@@ -93,7 +112,7 @@ export default function DashboardPage() {
           ابدأ بإنشاء براندك الأول، ودع الذكاء الاصطناعي يبني محتواك.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <p className="text-sm text-gray-400 mb-2">الخطة الحالية</p>
             <p className="text-2xl font-bold capitalize">{workspace?.plan || 'Starter'}</p>
@@ -106,22 +125,64 @@ export default function DashboardPage() {
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <p className="text-sm text-gray-400 mb-2">البراندات</p>
-            <p className="text-2xl font-bold">0</p>
+            <p className="text-2xl font-bold">{brands.length}</p>
           </div>
         </div>
 
-        <div className="mt-12 bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-2xl p-10 text-center">
-          <h3 className="text-2xl font-bold mb-3">أنشئ براندك الأول</h3>
-          <p className="text-gray-300 mb-6">
-            ارفع شعارك، وأخبرنا عن منتجك، ودع الذكاء الاصطناعي يبني عقل براندك.
-          </p>
-          <button
-            disabled
-            className="px-8 py-3 bg-blue-500 rounded-lg font-semibold opacity-50 cursor-not-allowed"
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold">البراندات</h3>
+          <Link
+            href="/brands/new"
+            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-semibold transition"
           >
-            قريبًا — إنشاء براند
-          </button>
+            + إنشاء براند
+          </Link>
         </div>
+
+        {loadingBrands ? (
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-gray-400">
+            جاري التحميل...
+          </div>
+        ) : brands.length === 0 ? (
+          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-2xl p-10 text-center">
+            <h4 className="text-2xl font-bold mb-3">أنشئ براندك الأول</h4>
+            <p className="text-gray-300 mb-6">
+              ارفع شعارك، وأخبرنا عن منتجك، ودع الذكاء الاصطناعي يبني عقل براندك.
+            </p>
+            <Link
+              href="/brands/new"
+              className="inline-block px-8 py-3 bg-blue-500 rounded-lg font-semibold hover:bg-blue-600 transition"
+            >
+              ابدأ الآن
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {brands.map((brand) => (
+              <Link
+                key={brand.id}
+                href={`/brands/${brand.id}`}
+                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-blue-500/50 transition cursor-pointer block"
+              >
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl mb-4 flex items-center justify-center text-2xl font-bold overflow-hidden">
+                  {brand.logo_url ? (
+                    <img
+                      src={`http://localhost:8000${brand.logo_url}`}
+                      alt={brand.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{brand.name.charAt(0)}</span>
+                  )}
+                </div>
+                <h4 className="text-xl font-bold mb-2">{brand.name}</h4>
+                <p className="text-sm text-gray-400">
+                  أُنشئ في {new Date(brand.created_at).toLocaleDateString('ar')}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

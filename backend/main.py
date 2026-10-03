@@ -1,7 +1,10 @@
 import os
 import uuid
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi.staticfiles import StaticFiles
+import shutil
+from pathlib import Path
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text, String, DateTime, ForeignKey
@@ -68,6 +71,7 @@ class Brand(Base):
 
 
 Base.metadata.create_all(bind=engine)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 # ============ Schemas ============
@@ -253,4 +257,45 @@ def get_brand(
         "name": brand.name,
         "logo_url": brand.logo_url,
         "created_at": brand.created_at.isoformat(),
+    }
+
+# ============ Uploads ============
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+
+@app.post("/brands/{brand_id}/logo")
+def upload_brand_logo(
+    brand_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    # امتداد الملف
+    ext = Path(file.filename).suffix.lower()
+    if ext not in [".png", ".jpg", ".jpeg", ".svg", ".webp"]:
+        raise HTTPException(status_code=400, detail="Only image files allowed")
+
+    # حفظ الملف
+    filename = f"{brand_id}{ext}"
+    filepath = UPLOAD_DIR / filename
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # تحديث قاعدة البيانات
+    brand.logo_url = f"/uploads/{filename}"
+    db.commit()
+    db.refresh(brand)
+
+    return {
+        "id": brand.id,
+        "name": brand.name,
+        "logo_url": brand.logo_url,
     }
