@@ -1,7 +1,8 @@
 import os
 import uuid
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, text, String, DateTime, ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, Session
@@ -90,10 +91,14 @@ def get_db():
         db.close()
 
 
-def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing token")
-    token = authorization.replace("Bearer ", "")
+security = HTTPBearer()
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> User:
+    token = credentials.credentials
     payload = decode_access_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
@@ -183,4 +188,69 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return {
         "user": {"id": user.id, "email": user.email},
         "workspace": {"id": workspace.id, "name": workspace.name, "plan": workspace.plan, "credits": workspace.credits} if workspace else None,
+    }
+
+# ============ Brands ============
+class CreateBrandRequest(BaseModel):
+    name: str
+    description: str | None = None
+
+
+@app.post("/brands")
+def create_brand(
+    data: CreateBrandRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = Brand(
+        workspace_id=user.workspace_id,
+        name=data.name,
+        logo_url=None,
+    )
+    db.add(brand)
+    db.commit()
+    db.refresh(brand)
+
+    return {
+        "id": brand.id,
+        "name": brand.name,
+        "logo_url": brand.logo_url,
+        "created_at": brand.created_at.isoformat(),
+    }
+
+
+@app.get("/brands")
+def list_brands(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brands = db.query(Brand).filter(Brand.workspace_id == user.workspace_id).all()
+    return [
+        {
+            "id": b.id,
+            "name": b.name,
+            "logo_url": b.logo_url,
+            "created_at": b.created_at.isoformat(),
+        }
+        for b in brands
+    ]
+
+
+@app.get("/brands/{brand_id}")
+def get_brand(
+    brand_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+    return {
+        "id": brand.id,
+        "name": brand.name,
+        "logo_url": brand.logo_url,
+        "created_at": brand.created_at.isoformat(),
     }

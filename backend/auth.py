@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 SECRET_KEY = os.getenv("JWT_SECRET", "change-me-in-production")
+print(f"[AUTH] SECRET_KEY loaded: {SECRET_KEY[:20]}...")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
@@ -53,5 +54,6 @@ def decode_access_token(token: str) -> dict | None:
     """فك تشفير JWT token"""
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as e:
+        print(f"[AUTH] JWT decode error: {e}")
         return None
