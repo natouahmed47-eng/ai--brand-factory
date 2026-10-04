@@ -1,6 +1,7 @@
 ﻿import os
 import json
 from openai import OpenAI
+import replicate
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -108,3 +109,132 @@ def generate_script(brand, idea):
     except Exception as e:
         print("[SCRIPT_AI_ERROR] " + str(e))
         return []
+
+
+
+def generate_scene_image(visual_description, brand_colors=None, aspect_ratio="9:16"):
+    """يولّد صورة لمشهد باستخدام Flux Schnell"""
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand color palette: " + ", ".join(brand_colors) + "."
+
+    prompt = (
+        "Professional cinematic advertising photograph. "
+        + str(visual_description)
+        + colors_str
+        + " High quality, 8k, commercial product photography style, "
+        + "professional lighting, elegant composition."
+    )
+
+    try:
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        token = os.getenv("REPLICATE_API_TOKEN")
+        client = replicate.Client(api_token=token, timeout=120.0)
+        output = client.run(
+            "black-forest-labs/flux-schnell",
+            input={
+                "prompt": prompt,
+                "aspect_ratio": aspect_ratio,
+                "output_format": "webp",
+                "output_quality": 80,
+                "num_outputs": 1,
+            },
+        )
+
+        if output and len(output) > 0:
+            return str(output[0])
+        return None
+
+    except Exception as e:
+        print("[IMAGE_GEN_ERROR] " + str(e))
+        return None
+
+def generate_scene_image(visual_description, brand_colors=None, aspect_ratio="9:16"):
+    import requests
+    import time
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    token = os.getenv("REPLICATE_API_TOKEN")
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand color palette: " + ", ".join(brand_colors) + "."
+
+    prompt = (
+        "Professional cinematic advertising photograph. "
+        + str(visual_description)
+        + colors_str
+        + " High quality, 8k, commercial product photography style, "
+        + "professional lighting, elegant composition."
+    )
+
+    try:
+        start = requests.post(
+            "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",
+            headers={
+                "Authorization": "Token " + token,
+                "Content-Type": "application/json",
+            },
+            json={
+                "input": {
+                    "prompt": prompt,
+                    "aspect_ratio": aspect_ratio,
+                    "output_format": "webp",
+                    "output_quality": 80,
+                    "num_outputs": 1,
+                }
+            },
+            timeout=60,
+        )
+
+        if start.status_code != 201:
+            print("[IMAGE_GEN_ERROR] Start failed: " + str(start.status_code) + " " + start.text[:200])
+            return None
+
+        prediction = start.json()
+        prediction_id = prediction["id"]
+        print("[IMAGE_GEN] Started: " + prediction_id)
+
+        for i in range(100):
+            time.sleep(3)
+            check = requests.get(
+                "https://api.replicate.com/v1/predictions/" + prediction_id,
+                headers={"Authorization": "Token " + token},
+                timeout=60,
+            )
+            data = check.json()
+            status = data.get("status")
+            print("[IMAGE_GEN] Status: " + str(status))
+
+            if status == "succeeded":
+                output = data.get("output", [])
+                if output and len(output) > 0:
+                    import uuid
+                    from pathlib import Path as P
+                    remote_url = str(output[0])
+                    filename = str(uuid.uuid4()) + ".webp"
+                    folder = P("uploads/scenes")
+                    folder.mkdir(parents=True, exist_ok=True)
+                    local_path = folder / filename
+
+                    img = requests.get(remote_url, timeout=120)
+                    with open(local_path, "wb") as f:
+                        f.write(img.content)
+
+                    return "/uploads/scenes/" + filename
+                return None
+            elif status == "failed" or status == "canceled":
+                print("[IMAGE_GEN_ERROR] Failed: " + str(data.get("error")))
+                return None
+
+        print("[IMAGE_GEN_ERROR] Timeout after 300s")
+        return None
+
+    except Exception as e:
+        print("[IMAGE_GEN_ERROR] " + str(e))
+        return None
