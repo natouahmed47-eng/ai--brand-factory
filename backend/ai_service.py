@@ -238,3 +238,92 @@ def generate_scene_image(visual_description, brand_colors=None, aspect_ratio="9:
     except Exception as e:
         print("[IMAGE_GEN_ERROR] " + str(e))
         return None
+
+def generate_scene_video(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+    import requests
+    import time
+    import os
+    import uuid
+    from pathlib import Path
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    token = os.getenv("REPLICATE_API_TOKEN")
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand color palette: " + ", ".join(brand_colors) + "."
+
+    prompt = (
+        "Cinematic advertising video. "
+        + str(visual_description)
+        + colors_str
+        + " Professional lighting, smooth camera movement, high quality."
+    )
+
+    try:
+        start = requests.post(
+            "https://api.replicate.com/v1/models/minimax/video-01/predictions",
+            headers={
+                "Authorization": "Token " + token,
+                "Content-Type": "application/json",
+            },
+            json={
+                "input": {
+                    "prompt": prompt,
+                    "prompt_optimizer": True,
+                }
+            },
+            timeout=60,
+        )
+
+        if start.status_code != 201:
+            print("[VIDEO_GEN_ERROR] Start failed: " + str(start.status_code) + " " + start.text[:300])
+            return None
+
+        prediction = start.json()
+        prediction_id = prediction["id"]
+        print("[VIDEO_GEN] Started: " + prediction_id)
+
+        for i in range(200):
+            time.sleep(5)
+            check = requests.get(
+                "https://api.replicate.com/v1/predictions/" + prediction_id,
+                headers={"Authorization": "Token " + token},
+                timeout=60,
+            )
+            data = check.json()
+            status = data.get("status")
+            print("[VIDEO_GEN] Status: " + str(status))
+
+            if status == "succeeded":
+                output = data.get("output")
+                if isinstance(output, list) and len(output) > 0:
+                    remote_url = str(output[0])
+                elif isinstance(output, str):
+                    remote_url = output
+                else:
+                    print("[VIDEO_GEN_ERROR] Unexpected output format")
+                    return None
+
+                filename = str(uuid.uuid4()) + ".mp4"
+                folder = Path("uploads/videos")
+                folder.mkdir(parents=True, exist_ok=True)
+                local_path = folder / filename
+
+                video_data = requests.get(remote_url, timeout=300)
+                with open(local_path, "wb") as f:
+                    f.write(video_data.content)
+
+                return "/uploads/videos/" + filename
+
+            elif status == "failed" or status == "canceled":
+                print("[VIDEO_GEN_ERROR] Failed: " + str(data.get("error")))
+                return None
+
+        print("[VIDEO_GEN_ERROR] Timeout after 1000s")
+        return None
+
+    except Exception as e:
+        print("[VIDEO_GEN_ERROR] " + str(e))
+        return None
