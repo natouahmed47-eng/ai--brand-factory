@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr
 
 from auth import hash_password, verify_password, create_access_token, decode_access_token
 from brand_brain import extract_colors
-from ai_service import generate_creative_ideas, generate_script, generate_scene_music
+from ai_service import generate_creative_ideas, generate_script, generate_captions, generate_scene_music
 
 load_dotenv()
 
@@ -478,3 +478,29 @@ def campaign_music(
         raise HTTPException(status_code=500, detail="Failed to generate music")
 
     return {"music_url": url}
+
+
+class CaptionsRequest(BaseModel):
+    brand_id: str
+    scenes: list
+
+
+@app.post("/campaigns/captions")
+def campaign_captions(
+    data: CaptionsRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == data.brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    url = generate_captions(data.scenes)
+    if not url:
+        raise HTTPException(status_code=500, detail="Failed to generate captions")
+
+    return {"captions_url": url}

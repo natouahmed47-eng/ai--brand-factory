@@ -609,3 +609,50 @@ def generate_scene_music(prompt, duration=30):
         print("[MUSIC_GEN_ERROR] " + str(e))
         return None
 
+
+def generate_captions(scenes, language="ar"):
+    import uuid
+    from pathlib import Path
+
+    try:
+        folder = Path("uploads/captions")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        filename = str(uuid.uuid4()) + ".srt"
+        filepath = folder / filename
+
+        def format_time(seconds):
+            ms = int((seconds % 1) * 1000)
+            s = int(seconds) % 60
+            m = (int(seconds) // 60) % 60
+            h = int(seconds) // 3600
+            return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+        lines = []
+        current_time = 0.0
+
+        for i, scene in enumerate(scenes, start=1):
+            duration = float(scene.get("duration", 3))
+            start_time = current_time
+            end_time = current_time + duration
+            current_time = end_time
+
+            text = scene.get("voice_over") or scene.get("on_screen_text") or ""
+            text = str(text).strip()
+            if not text:
+                continue
+
+            lines.append(str(i))
+            lines.append(format_time(start_time) + " --> " + format_time(end_time))
+            lines.append(text)
+            lines.append("")
+
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+
+        return "/uploads/captions/" + filename
+
+    except Exception as e:
+        print("[CAPTIONS_ERROR] " + str(e))
+        return None
+
