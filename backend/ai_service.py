@@ -25,11 +25,19 @@ def generate_creative_ideas(brand, product=None):
     )
 
     text = response.choices[0].message.content.strip()
+    print("[AI_RAW_RESPONSE_START]")
+    print(text[:500])
+    print("[AI_RAW_RESPONSE_END]")
+
     if text.startswith("```"):
         text = text.split("```")[1]
         if text.startswith("json"):
             text = text[4:]
         text = text.strip()
 
-    return json.loads(text).get("ideas", [])
+    try:
+        return json.loads(text).get("ideas", [])
+    except Exception as e:
+        print("[AI_PARSE_ERROR] " + str(e))
+        return []
 
