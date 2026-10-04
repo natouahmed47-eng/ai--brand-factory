@@ -656,3 +656,153 @@ def generate_captions(scenes, language="ar"):
         print("[CAPTIONS_ERROR] " + str(e))
         return None
 
+
+def combine_videos(video_paths, output_name=None):
+    """???? ??? ???????? ?? ????? ???? (???? ???)"""
+    import subprocess
+    import uuid
+    from pathlib import Path
+    import imageio_ffmpeg
+
+    try:
+        if not video_paths or len(video_paths) == 0:
+            return None
+
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+        folder = Path("uploads/final")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        if output_name is None:
+            output_name = str(uuid.uuid4()) + ".mp4"
+
+        # ??? list ?????
+        list_file = folder / (output_name + ".txt")
+        with open(list_file, "w", encoding="utf-8") as f:
+            for vp in video_paths:
+                abs_path = str(Path(vp).absolute())
+                f.write("file '" + abs_path.replace("\\", "/") + "'\n")
+
+        output_path = folder / output_name
+
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", str(list_file),
+            "-c", "copy",
+            str(output_path),
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+        if result.returncode != 0:
+            print("[EDIT_ERROR] " + result.stderr[-500:])
+            return None
+
+        list_file.unlink()
+        return "/uploads/final/" + output_name
+
+    except Exception as e:
+        print("[EDIT_ERROR] " + str(e))
+        return None
+
+
+def merge_scene(video_path, voice_path, output_name=None):
+    """???? ????? ?????? ?? ????? (Voice Over)"""
+    import subprocess
+    import uuid
+    from pathlib import Path
+    import imageio_ffmpeg
+
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+        folder = Path("uploads/scenes_merged")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        if output_name is None:
+            output_name = str(uuid.uuid4()) + ".mp4"
+
+        output_path = folder / output_name
+
+        video_abs = str(Path(video_path).absolute())
+        voice_abs = str(Path(voice_path).absolute())
+
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-i", video_abs,
+            "-i", voice_abs,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            str(output_path),
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+
+        if result.returncode != 0:
+            print("[MERGE_ERROR] " + result.stderr[-800:])
+            return None
+
+        return "/uploads/scenes_merged/" + output_name
+
+    except Exception as e:
+        print("[MERGE_ERROR] " + str(e))
+        return None
+
+
+def merge_with_music(video_path, voice_path, music_path, output_name=None):
+    """???? ????? + ??? + ?????? (???????? ?? ??????? ????? 20%)"""
+    import subprocess
+    import uuid
+    from pathlib import Path
+    import imageio_ffmpeg
+
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+        folder = Path("uploads/scenes_merged")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        if output_name is None:
+            output_name = str(uuid.uuid4()) + ".mp4"
+
+        output_path = folder / output_name
+
+        video_abs = str(Path(video_path).absolute())
+        voice_abs = str(Path(voice_path).absolute())
+        music_abs = str(Path(music_path).absolute())
+
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-i", video_abs,
+            "-i", voice_abs,
+            "-i", music_abs,
+            "-filter_complex",
+            "[1:a]volume=1.0[voice];[2:a]volume=0.2[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+            "-map", "0:v:0",
+            "-map", "[aout]",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
+            str(output_path),
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+
+        if result.returncode != 0:
+            print("[MUSIC_MERGE_ERROR] " + result.stderr[-800:])
+            return None
+
+        return "/uploads/scenes_merged/" + output_name
+
+    except Exception as e:
+        print("[MUSIC_MERGE_ERROR] " + str(e))
+        return None
+
