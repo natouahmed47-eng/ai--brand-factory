@@ -498,7 +498,7 @@ def generate_scene_voice(text, voice="Aria", language_code="ar"):
         return None
 
 
-def generate_scene_voice(text, voice_id="CwhRBWXzGAHq8TQ4Fs17", model="eleven_turbo_v2_5", stability=0.5, similarity_boost=0.75):
+def generate_scene_voice(text, voice_id="CwhRBWXzGAHq8TQ4Fs17", model="eleven_v3", stability=0.4, similarity_boost=0.85, style=0.6, speed=1.0):
     import os
     import uuid
     from pathlib import Path
@@ -518,6 +518,9 @@ def generate_scene_voice(text, voice_id="CwhRBWXzGAHq8TQ4Fs17", model="eleven_tu
             voice_settings={
                 "stability": stability,
                 "similarity_boost": similarity_boost,
+                "style": style,
+                "use_speaker_boost": True,
+                "speed": speed,
             },
         )
 
