@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr
 
 from auth import hash_password, verify_password, create_access_token, decode_access_token
 from brand_brain import extract_colors
-from ai_service import generate_creative_ideas
+from ai_service import generate_creative_ideas, generate_script
 
 load_dotenv()
 
@@ -412,3 +412,38 @@ def campaign_ideas(
         raise HTTPException(status_code=500, detail="Failed to generate ideas")
 
     return {"ideas": ideas}
+
+
+
+class ScriptRequest(BaseModel):
+    brand_id: str
+    idea: dict
+
+
+@app.post("/campaigns/script")
+def campaign_script(
+    data: ScriptRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == data.brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    brand_data = {
+        "name": brand.name,
+        "personality": brand.personality or {},
+        "audience": brand.audience or {},
+        "colors": brand.colors or {},
+    }
+
+    scenes = generate_script(brand_data, data.idea)
+
+    if not scenes:
+        raise HTTPException(status_code=500, detail="Failed to generate script")
+
+    return {"scenes": scenes}

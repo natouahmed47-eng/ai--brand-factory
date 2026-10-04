@@ -202,12 +202,12 @@ export default function BrandDetailPage() {
               Complete Brand Brain
             </Link>
           ) : (
-            <button
-              disabled
-              className="px-6 py-3 bg-purple-500/50 rounded-lg font-semibold cursor-not-allowed"
+            <Link
+              href={`/brands/${brand.id}/create-campaign`}
+              className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg font-semibold hover:opacity-90 transition"
             >
-              Create Campaign (coming soon)
-            </button>
+              Create Campaign
+            </Link>
           )}
         </div>
       </div>
