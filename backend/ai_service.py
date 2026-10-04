@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 from openai import OpenAI
 import replicate
@@ -327,3 +327,212 @@ def generate_scene_video(visual_description, duration=5, brand_colors=None, aspe
     except Exception as e:
         print("[VIDEO_GEN_ERROR] " + str(e))
         return None
+
+
+def generate_scene_voice(text, voice_id="English_Wiselady", language_boost="Arabic", emotion="auto"):
+    import requests
+    import time
+    import os
+    import uuid
+    from pathlib import Path
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    token = os.getenv("REPLICATE_API_TOKEN")
+
+    try:
+        start = requests.post(
+            "https://api.replicate.com/v1/models/minimax/speech-2.8-hd/predictions",
+            headers={
+                "Authorization": "Token " + token,
+                "Content-Type": "application/json",
+            },
+            json={
+                "input": {
+                    "text": text,
+                    "voice_id": voice_id,
+                    "language_boost": language_boost,
+                    "emotion": emotion,
+                    "audio_format": "mp3",
+                    "sample_rate": 32000,
+                    "bitrate": 128000,
+                    "channel": "mono",
+                }
+            },
+            timeout=60,
+        )
+
+        if start.status_code != 201:
+            print("[VOICE_GEN_ERROR] Start failed: " + str(start.status_code) + " " + start.text[:300])
+            return None
+
+        prediction = start.json()
+        prediction_id = prediction["id"]
+        print("[VOICE_GEN] Started: " + prediction_id)
+
+        for i in range(60):
+            time.sleep(2)
+            check = requests.get(
+                "https://api.replicate.com/v1/predictions/" + prediction_id,
+                headers={"Authorization": "Token " + token},
+                timeout=60,
+            )
+            data = check.json()
+            status = data.get("status")
+            print("[VOICE_GEN] Status: " + str(status))
+
+            if status == "succeeded":
+                output = data.get("output")
+                remote_url = None
+                if isinstance(output, list) and len(output) > 0:
+                    remote_url = str(output[0])
+                elif isinstance(output, str):
+                    remote_url = output
+                elif isinstance(output, dict) and "url" in output:
+                    remote_url = str(output["url"])
+
+                if not remote_url:
+                    print("[VOICE_GEN_ERROR] No audio URL in output")
+                    return None
+
+                filename = str(uuid.uuid4()) + ".mp3"
+                folder = Path("uploads/voices")
+                folder.mkdir(parents=True, exist_ok=True)
+                local_path = folder / filename
+
+                audio_data = requests.get(remote_url, timeout=120)
+                with open(local_path, "wb") as f:
+                    f.write(audio_data.content)
+
+                return "/uploads/voices/" + filename
+
+            elif status == "failed" or status == "canceled":
+                print("[VOICE_GEN_ERROR] Failed: " + str(data.get("error")))
+                return None
+
+        print("[VOICE_GEN_ERROR] Timeout after 120s")
+        return None
+
+    except Exception as e:
+        print("[VOICE_GEN_ERROR] " + str(e))
+        return None
+
+
+def generate_scene_voice(text, voice="Aria", language_code="ar"):
+    import requests
+    import time
+    import os
+    import uuid
+    from pathlib import Path
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    token = os.getenv("REPLICATE_API_TOKEN")
+
+    try:
+        start = requests.post(
+            "https://api.replicate.com/v1/models/elevenlabs/v2-multilingual/predictions",
+            headers={
+                "Authorization": "Token " + token,
+                "Content-Type": "application/json",
+            },
+            json={
+                "input": {
+                    "prompt": text,
+                    "voice": voice,
+                    "language_code": language_code,
+                    "stability": 0.5,
+                    "similarity_boost": 0.75,
+                    "style": 0,
+                    "speed": 1,
+                }
+            },
+            timeout=60,
+        )
+
+        if start.status_code != 201:
+            print("[VOICE_GEN_ERROR] Start failed: " + str(start.status_code))
+            return None
+
+        prediction = start.json()
+        prediction_id = prediction["id"]
+        print("[VOICE_GEN] Started: " + prediction_id)
+
+        for i in range(60):
+            time.sleep(2)
+            check = requests.get(
+                "https://api.replicate.com/v1/predictions/" + prediction_id,
+                headers={"Authorization": "Token " + token},
+                timeout=60,
+            )
+            data = check.json()
+            status = data.get("status")
+            print("[VOICE_GEN] Status: " + str(status))
+
+            if status == "succeeded":
+                output = data.get("output")
+                remote_url = str(output) if output else None
+                if not remote_url:
+                    print("[VOICE_GEN_ERROR] No URL")
+                    return None
+
+                filename = str(uuid.uuid4()) + ".mp3"
+                folder = Path("uploads/voices")
+                folder.mkdir(parents=True, exist_ok=True)
+                local_path = folder / filename
+
+                audio_data = requests.get(remote_url, timeout=120)
+                with open(local_path, "wb") as f:
+                    f.write(audio_data.content)
+
+                return "/uploads/voices/" + filename
+
+            elif status in ["failed", "canceled"]:
+                print("[VOICE_GEN_ERROR] Failed")
+                return None
+
+        return None
+
+    except Exception as e:
+        print("[VOICE_GEN_ERROR] " + str(e))
+        return None
+
+
+def generate_scene_voice(text, voice_id="CwhRBWXzGAHq8TQ4Fs17", model="eleven_turbo_v2_5", stability=0.5, similarity_boost=0.75):
+    import os
+    import uuid
+    from pathlib import Path
+    from dotenv import load_dotenv
+    from elevenlabs.client import ElevenLabs
+
+    load_dotenv()
+
+    api_key = os.getenv("ELEVENLABS_API_KEY")
+    client = ElevenLabs(api_key=api_key)
+
+    try:
+        audio = client.text_to_speech.convert(
+            voice_id=voice_id,
+            text=text,
+            model_id=model,
+            voice_settings={
+                "stability": stability,
+                "similarity_boost": similarity_boost,
+            },
+        )
+
+        filename = str(uuid.uuid4()) + ".mp3"
+        folder = Path("uploads/voices")
+        folder.mkdir(parents=True, exist_ok=True)
+        local_path = folder / filename
+
+        with open(local_path, "wb") as f:
+            for chunk in audio:
+                f.write(chunk)
+
+        return "/uploads/voices/" + filename
+
+    except Exception as e:
+        print("[VOICE_GEN_ERROR] " + str(e))
+        return None
+
