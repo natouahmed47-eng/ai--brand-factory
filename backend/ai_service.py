@@ -539,3 +539,73 @@ def generate_scene_voice(text, voice_id="CwhRBWXzGAHq8TQ4Fs17", model="eleven_v3
         print("[VOICE_GEN_ERROR] " + str(e))
         return None
 
+
+def generate_scene_music(prompt, duration=30):
+    import requests
+    import time
+    import os
+    import uuid
+    from pathlib import Path
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    token = os.getenv("REPLICATE_API_TOKEN")
+
+    try:
+        start = requests.post(
+            "https://api.replicate.com/v1/models/stability-ai/stable-audio-2.5/predictions",
+            headers={"Authorization": "Token " + token, "Content-Type": "application/json"},
+            json={"input": {"prompt": prompt, "duration": duration}},
+            timeout=60,
+        )
+
+        if start.status_code != 201:
+            print("[MUSIC_GEN_ERROR] Start failed: " + str(start.status_code))
+            return None
+
+        prediction = start.json()
+        prediction_id = prediction["id"]
+        print("[MUSIC_GEN] Started: " + prediction_id)
+
+        for i in range(120):
+            time.sleep(3)
+            check = requests.get(
+                "https://api.replicate.com/v1/predictions/" + prediction_id,
+                headers={"Authorization": "Token " + token},
+                timeout=60,
+            )
+            data = check.json()
+            status = data.get("status")
+            print("[MUSIC_GEN] Status: " + str(status))
+
+            if status == "succeeded":
+                output = data.get("output")
+                remote_url = None
+                if isinstance(output, list) and output:
+                    remote_url = str(output[0])
+                elif isinstance(output, str):
+                    remote_url = output
+                if not remote_url:
+                    return None
+
+                filename = str(uuid.uuid4()) + ".mp3"
+                folder = Path("uploads/music")
+                folder.mkdir(parents=True, exist_ok=True)
+                local_path = folder / filename
+
+                audio_data = requests.get(remote_url, timeout=120)
+                with open(local_path, "wb") as f:
+                    f.write(audio_data.content)
+
+                return "/uploads/music/" + filename
+
+            elif status in ["failed", "canceled"]:
+                print("[MUSIC_GEN_ERROR] Failed")
+                return None
+
+        return None
+
+    except Exception as e:
+        print("[MUSIC_GEN_ERROR] " + str(e))
+        return None
+

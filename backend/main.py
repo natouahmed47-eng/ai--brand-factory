@@ -15,7 +15,7 @@ from pydantic import BaseModel, EmailStr
 
 from auth import hash_password, verify_password, create_access_token, decode_access_token
 from brand_brain import extract_colors
-from ai_service import generate_creative_ideas, generate_script
+from ai_service import generate_creative_ideas, generate_script, generate_scene_music
 
 load_dotenv()
 
@@ -447,3 +447,34 @@ def campaign_script(
         raise HTTPException(status_code=500, detail="Failed to generate script")
 
     return {"scenes": scenes}
+
+
+class MusicRequest(BaseModel):
+    brand_id: str
+    mood: str = "cinematic luxury ambient"
+    duration: int = 30
+
+
+@app.post("/campaigns/music")
+def campaign_music(
+    data: MusicRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == data.brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    mood = data.mood
+    duration = min(max(data.duration, 10), 120)
+    prompt = "Cinematic luxury brand music, " + mood + ", elegant, warm, professional advertising soundtrack"
+
+    url = generate_scene_music(prompt, duration)
+    if not url:
+        raise HTTPException(status_code=500, detail="Failed to generate music")
+
+    return {"music_url": url}
