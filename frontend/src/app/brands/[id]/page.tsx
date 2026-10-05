@@ -23,8 +23,10 @@ export default function BrandDetailPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
@@ -82,10 +84,10 @@ export default function BrandDetailPage() {
     }
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
-      <main className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-white">Loading...</p>
+      <main className="min-h-screen bg-gray-900 flex items-center justify-center" dir="rtl">
+        <p className="text-white">جاري التحميل...</p>
       </main>
     );
   }
@@ -202,12 +204,20 @@ export default function BrandDetailPage() {
               Complete Brand Brain
             </Link>
           ) : (
-            <Link
-              href={`/brands/${brand.id}/create-campaign`}
-              className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg font-semibold hover:opacity-90 transition"
-            >
-              Create Campaign
-            </Link>
+            <div className="flex gap-3 flex-wrap">
+              <Link
+                href={`/brands/${brand.id}/products`}
+                className="inline-block px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition"
+              >
+                منتجاتي
+              </Link>
+              <Link
+                href={`/brands/${brand.id}/create-campaign`}
+                className="inline-block px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg font-semibold hover:opacity-90 transition"
+              >
+                Create Campaign
+              </Link>
+            </div>
           )}
         </div>
       </div>

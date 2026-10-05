@@ -916,7 +916,7 @@ def add_music_to_video(video_path, music_path, output_name=None):
         return None
 
 
-def full_production_pipeline(brand_data, idea, progress_callback=None):
+def full_production_pipeline(brand_data, idea, product=None, progress_callback=None):
     """?? ??????? ??????: ?? ???? ? ????? ?????"""
     result = {
         "stages": [],
@@ -964,8 +964,15 @@ def full_production_pipeline(brand_data, idea, progress_callback=None):
 
             # Image
             report("image", "running", "scene " + str(i))
+            scene_visual = scene.get("visual", "")
+            if product:
+                product_context = product.get("name", "")
+                if product.get("description"):
+                    product_context += " - " + str(product.get("description"))
+                scene_visual = product_context + ". " + scene_visual
+
             img = generate_scene_image(
-                visual_description=scene.get("visual", ""),
+                visual_description=scene_visual,
                 brand_colors=brand_colors,
                 aspect_ratio="9:16",
             )
@@ -975,7 +982,7 @@ def full_production_pipeline(brand_data, idea, progress_callback=None):
             # Video
             report("video", "running", "scene " + str(i))
             vid = generate_scene_video(
-                visual_description=scene.get("visual", ""),
+                visual_description=scene_visual,
                 duration=scene.get("duration", 3),
                 brand_colors=brand_colors,
                 aspect_ratio="9:16",
@@ -1057,3 +1064,60 @@ def full_production_pipeline(brand_data, idea, progress_callback=None):
 
     return result
 
+
+def generate_video_formats(input_video_path, base_name=None):
+    """يولّد 3 صيغ من فيديو واحد: 9:16, 1:1, 16:9"""
+    import subprocess
+    import uuid
+    from pathlib import Path
+    import imageio_ffmpeg
+
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        folder = Path("uploads/formats")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        if base_name is None:
+            base_name = str(uuid.uuid4())
+
+        input_abs = str(Path(input_video_path).resolve())
+
+        formats = [
+            {"name": "vertical_9x16", "w": 1080, "h": 1920},
+            {"name": "square_1x1", "w": 1080, "h": 1080},
+            {"name": "landscape_16x9", "w": 1920, "h": 1080},
+        ]
+
+        results = {}
+
+        for fmt in formats:
+            output_name = base_name + "_" + fmt["name"] + ".mp4"
+            output_path = folder / output_name
+
+            vf = (
+                "scale=" + str(fmt["w"]) + ":" + str(fmt["h"]) +
+                ":force_original_aspect_ratio=decrease,"
+                "pad=" + str(fmt["w"]) + ":" + str(fmt["h"]) +
+                ":(ow-iw)/2:(oh-ih)/2:black"
+            )
+
+            cmd = [
+                ffmpeg_exe, "-y",
+                "-i", input_abs,
+                "-vf", vf,
+                "-c:a", "copy",
+                "-preset", "fast",
+                str(output_path),
+            ]
+
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            if result.returncode == 0:
+                results[fmt["name"]] = "/uploads/formats/" + output_name
+            else:
+                print("[FORMAT_ERROR] " + fmt["name"] + " | " + result.stderr[-300:])
+
+        return results
+
+    except Exception as e:
+        print("[FORMATS_ERROR] " + str(e))
+        return {}

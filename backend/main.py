@@ -93,6 +93,20 @@ class Campaign(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class Product(Base):
+    __tablename__ = "products"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id: Mapped[str] = mapped_column(String, ForeignKey("workspaces.id"))
+    brand_id: Mapped[str] = mapped_column(String, ForeignKey("brands.id"))
+    name: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(String, nullable=True)
+    price: Mapped[str] = mapped_column(String, nullable=True)
+    images: Mapped[dict] = mapped_column(JSON, nullable=True)
+    features: Mapped[dict] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 Base.metadata.create_all(bind=engine)
 
 # Migration: إضافة عمود colors إذا لم يكن موجودًا
@@ -400,6 +414,7 @@ def update_brain(
 
 class IdeasRequest(BaseModel):
     brand_id: str
+    product_id: str | None = None
 
 
 @app.post("/campaigns/ideas")
@@ -423,7 +438,21 @@ def campaign_ideas(
         "colors": brand.colors or {},
     }
 
-    ideas = generate_creative_ideas(brand_data)
+    product_data = None
+    if data.product_id:
+        prod = db.query(Product).filter(
+            Product.id == data.product_id,
+            Product.workspace_id == user.workspace_id,
+        ).first()
+        if prod:
+            product_data = {
+                "name": prod.name,
+                "description": prod.description,
+                "price": prod.price,
+                "images": prod.images or [],
+            }
+
+    ideas = generate_creative_ideas(brand_data, product_data)
 
     if not ideas:
         raise HTTPException(status_code=500, detail="Failed to generate ideas")
@@ -556,10 +585,22 @@ def _run_pipeline_thread(campaign_id: str):
             except Exception as e:
                 print("[PROGRESS_ERR] " + str(e))
 
+        product_data = None
+        product_id = (campaign.idea or {}).get("_product_id")
+        if product_id:
+            prod = db.query(Product).filter(Product.id == product_id).first()
+            if prod:
+                product_data = {
+                    "name": prod.name,
+                    "description": prod.description,
+                    "price": prod.price,
+                    "images": prod.images or [],
+                }
+
         campaign.status = "running"
         db.commit()
 
-        result = full_production_pipeline(brand_data, campaign.idea or {}, progress_callback=update_progress)
+        result = full_production_pipeline(brand_data, campaign.idea or {}, product=product_data, progress_callback=update_progress)
 
         campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
         if result.get("final_url"):
@@ -588,6 +629,7 @@ def _run_pipeline_thread(campaign_id: str):
 
 class CreateCampaignRequest(BaseModel):
     brand_id: str
+    product_id: str | None = None
     idea: dict
 
 
@@ -604,10 +646,14 @@ def create_campaign(
     if not brand:
         raise HTTPException(status_code=404, detail="Brand not found")
 
+    idea_with_product = dict(data.idea)
+    if data.product_id:
+        idea_with_product["_product_id"] = data.product_id
+
     campaign = Campaign(
         workspace_id=user.workspace_id,
         brand_id=data.brand_id,
-        idea=data.idea,
+        idea=idea_with_product,
         status="pending",
         stage="starting",
     )
@@ -665,3 +711,340 @@ def get_campaign(
         "error": campaign.error,
         "created_at": campaign.created_at.isoformat(),
     }
+
+
+# ============ Scene Regeneration ============
+class RegenerateSceneRequest(BaseModel):
+    brand_id: str
+
+
+@app.post("/campaigns/{campaign_id}/scenes/{scene_number}/regenerate")
+def regenerate_scene(
+    campaign_id: str,
+    scene_number: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ai_service import generate_scene_image, generate_scene_video, generate_scene_voice, merge_scene
+
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.workspace_id == user.workspace_id,
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    brand = db.query(Brand).filter(Brand.id == campaign.brand_id).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    scenes = campaign.scenes or []
+    scene_index = None
+    for idx, sc in enumerate(scenes):
+        if sc.get("number") == scene_number:
+            scene_index = idx
+            break
+
+    if scene_index is None:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    scene = scenes[scene_index]
+    brand_colors = (brand.colors or {}).get("palette") or []
+
+    # Regenerate image
+    print("[REGEN] Image for scene " + str(scene_number))
+    new_image = generate_scene_image(
+        visual_description=scene.get("visual", ""),
+        brand_colors=brand_colors,
+        aspect_ratio="9:16",
+    )
+    if new_image:
+        scene["image_url"] = new_image
+
+    # Regenerate video
+    print("[REGEN] Video for scene " + str(scene_number))
+    new_video = generate_scene_video(
+        visual_description=scene.get("visual", ""),
+        duration=scene.get("duration", 3),
+        brand_colors=brand_colors,
+        aspect_ratio="9:16",
+    )
+    if new_video:
+        scene["video_url"] = new_video
+
+    # Regenerate voice
+    voice_text = scene.get("voice_over", "")
+    if voice_text:
+        print("[REGEN] Voice for scene " + str(scene_number))
+        new_voice = generate_scene_voice(voice_text)
+        if new_voice:
+            scene["voice_url"] = new_voice
+
+    # Merge
+    if scene.get("video_url") and scene.get("voice_url"):
+        print("[REGEN] Merge for scene " + str(scene_number))
+        merged = merge_scene("." + scene["video_url"], "." + scene["voice_url"])
+        if merged:
+            scene["merged_url"] = merged
+
+    scenes[scene_index] = scene
+    campaign.scenes = scenes
+    db.commit()
+    db.refresh(campaign)
+
+    return {
+        "success": True,
+        "scene": scene,
+    }
+
+
+@app.post("/campaigns/{campaign_id}/rebuild")
+def rebuild_campaign(
+    campaign_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ai_service import (
+        combine_videos,
+        generate_scene_music,
+        generate_captions,
+        add_music_to_video,
+        add_captions_to_video,
+    )
+
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.workspace_id == user.workspace_id,
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    brand = db.query(Brand).filter(Brand.id == campaign.brand_id).first()
+    scenes = campaign.scenes or []
+
+    # Collect merged scene paths
+    merged_paths = []
+    for sc in scenes:
+        if sc.get("merged_url"):
+            merged_paths.append("." + sc["merged_url"])
+
+    if not merged_paths:
+        raise HTTPException(status_code=400, detail="No merged scenes available")
+
+    # Combine
+    combined = combine_videos(merged_paths)
+    if not combined:
+        raise HTTPException(status_code=500, detail="Combine failed")
+
+    # Music
+    total_duration = sum(sc.get("duration", 3) for sc in scenes)
+    mood = "cinematic luxury ambient"
+    if brand and brand.personality:
+        if brand.personality.get("emotional_territory"):
+            mood = "cinematic " + str(brand.personality.get("emotional_territory"))
+    music_prompt = "Cinematic luxury brand music, " + mood + ", elegant, warm, professional advertising soundtrack"
+    music_url = generate_scene_music(music_prompt, duration=min(int(total_duration), 120))
+
+    # Add music
+    with_music = combined
+    if music_url:
+        result_music = add_music_to_video("." + combined, "." + music_url)
+        if result_music:
+            with_music = result_music
+
+    # Captions
+    srt_url = generate_captions(scenes)
+    final_url = None
+    if srt_url:
+        final_url = add_captions_to_video("." + with_music, "." + srt_url)
+
+    campaign.final_url = final_url
+    campaign.assets = {
+        "music_url": music_url,
+        "captions_url": srt_url,
+        "combined_url": combined,
+        "with_music_url": with_music,
+    }
+    if final_url:
+        campaign.status = "done"
+        campaign.error = None
+    db.commit()
+    db.refresh(campaign)
+
+    return {
+        "success": True,
+        "final_url": final_url,
+        "campaign_id": campaign.id,
+    }
+
+
+@app.post("/campaigns/{campaign_id}/formats")
+def campaign_formats(
+    campaign_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from ai_service import generate_video_formats
+
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.workspace_id == user.workspace_id,
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    if not campaign.final_url:
+        raise HTTPException(status_code=400, detail="No final video yet")
+
+    # تحقق إذا كانت الصيغ موجودة
+    assets = campaign.assets or {}
+    if assets.get("formats"):
+        return {"formats": assets["formats"]}
+
+    # ولّد الصيغ
+    result = generate_video_formats("." + campaign.final_url, base_name=campaign.id)
+
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to generate formats")
+
+    assets["formats"] = result
+    campaign.assets = assets
+    db.commit()
+
+    return {"formats": result}
+
+
+# ============ Products ============
+class CreateProductRequest(BaseModel):
+    brand_id: str
+    name: str
+    description: str | None = None
+    price: str | None = None
+    features: list | None = None
+
+
+def serialize_product(product: Product) -> dict:
+    return {
+        "id": product.id,
+        "brand_id": product.brand_id,
+        "name": product.name,
+        "description": product.description,
+        "price": product.price,
+        "images": product.images or [],
+        "features": product.features or [],
+        "created_at": product.created_at.isoformat(),
+    }
+
+
+@app.post("/products")
+def create_product(
+    data: CreateProductRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == data.brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    product = Product(
+        workspace_id=user.workspace_id,
+        brand_id=data.brand_id,
+        name=data.name,
+        description=data.description,
+        price=data.price,
+        images=[],
+        features=data.features or [],
+    )
+    db.add(product)
+    db.commit()
+    db.refresh(product)
+    return serialize_product(product)
+
+
+@app.get("/brands/{brand_id}/products")
+def list_products(
+    brand_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    products = db.query(Product).filter(Product.brand_id == brand_id).order_by(Product.created_at.desc()).all()
+    return [serialize_product(pp) for pp in products]
+
+
+@app.get("/products/{product_id}")
+def get_product(
+    product_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.workspace_id == user.workspace_id,
+    ).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return serialize_product(product)
+
+
+@app.post("/products/{product_id}/images")
+def upload_product_image(
+    product_id: str,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.workspace_id == user.workspace_id,
+    ).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    ext = Path(file.filename).suffix.lower()
+    if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+        raise HTTPException(status_code=400, detail="Only image files allowed")
+
+    filename = product_id + "_" + str(uuid.uuid4())[:8] + ext
+    folder = Path("uploads/products")
+    folder.mkdir(parents=True, exist_ok=True)
+    filepath = folder / filename
+
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    from sqlalchemy.orm.attributes import flag_modified
+    images = list(product.images or [])
+    images.append("/uploads/products/" + filename)
+    product.images = images
+    flag_modified(product, "images")
+    db.commit()
+    db.refresh(product)
+
+    return serialize_product(product)
+
+
+@app.delete("/products/{product_id}")
+def delete_product(
+    product_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.workspace_id == user.workspace_id,
+    ).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    db.delete(product)
+    db.commit()
+    return {"success": True}

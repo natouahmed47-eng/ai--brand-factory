@@ -16,6 +16,15 @@ type User = {
   email: string;
 };
 
+type Campaign = {
+  id: string;
+  brand_id: string;
+  status: string;
+  stage: string;
+  final_url: string | null;
+  created_at: string;
+};
+
 type Brand = {
   id: string;
   name: string;
@@ -28,6 +37,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(true);
 
   useEffect(() => {
@@ -72,6 +82,13 @@ export default function DashboardPage() {
         setLoadingBrands(false);
       })
       .catch(() => setLoadingBrands(false));
+
+    fetch('http://localhost:8000/campaigns', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setCampaigns(data))
+      .catch(() => {});
   }, [router]);
 
   const handleLogout = () => {
@@ -181,6 +198,52 @@ export default function DashboardPage() {
                 </p>
               </Link>
             ))}
+          </div>
+        )}
+
+        {campaigns.length > 0 && (
+          <div className="mt-16">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold">حملاتي</h3>
+              <span className="text-sm text-gray-400">{campaigns.length} حملة</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {campaigns.map((camp) => {
+                const brand = brands.find((b) => b.id === camp.brand_id);
+                const statusColor =
+                  camp.status === 'done'
+                    ? 'bg-green-500/20 border-green-500/30 text-green-300'
+                    : camp.status === 'failed'
+                    ? 'bg-red-500/20 border-red-500/30 text-red-300'
+                    : 'bg-blue-500/20 border-blue-500/30 text-blue-300';
+                const statusText =
+                  camp.status === 'done'
+                    ? 'جاهزة'
+                    : camp.status === 'failed'
+                    ? 'فشلت'
+                    : 'قيد الإنتاج';
+                return (
+                  <Link
+                    key={camp.id}
+                    href={'/campaigns/' + camp.id}
+                    className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-blue-500/50 hover:bg-white/10 transition cursor-pointer block"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <h4 className="text-lg font-bold">{brand?.name || 'براند'}</h4>
+                      <span className={'text-xs px-3 py-1 rounded-full border ' + statusColor}>
+                        {statusText}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-3">
+                      {new Date(camp.created_at).toLocaleDateString('ar-EG')}
+                    </p>
+                    {camp.status === 'running' && (
+                      <p className="text-xs text-gray-500 truncate">{camp.stage}</p>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
