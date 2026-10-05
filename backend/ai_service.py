@@ -806,3 +806,254 @@ def merge_with_music(video_path, voice_path, music_path, output_name=None):
         print("[MUSIC_MERGE_ERROR] " + str(e))
         return None
 
+
+def add_captions_to_video(video_path, srt_path, output_name=None):
+    """???? Captions ?????? ??? ???????"""
+    import subprocess
+    import uuid
+    import shutil
+    from pathlib import Path
+    import imageio_ffmpeg
+
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+        folder = Path("uploads/scenes_merged")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        if output_name is None:
+            output_name = str(uuid.uuid4()) + "_captioned.mp4"
+
+        # ???????? ???????
+        video_abs = str(Path(video_path).resolve())
+        srt_src = Path(srt_path).resolve()
+
+        # ??? SRT ??? ???? ????? ???? ????
+        srt_local_name = "temp_subtitles_" + str(uuid.uuid4())[:8] + ".srt"
+        srt_local_path = folder / srt_local_name
+        shutil.copy(str(srt_src), str(srt_local_path))
+
+        # ?????? ??? ????? ??? (??? cwd ????? ??????)
+        style = "FontName=Tahoma,FontSize=10,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=3,Outline=2,Shadow=1,MarginV=40,Alignment=2,Bold=1"
+
+        cmd = [
+            ffmpeg_exe,
+            "-y",
+            "-i", video_abs,
+            "-vf", "subtitles=" + srt_local_name + ":force_style='" + style + "'",
+            "-c:a", "copy",
+            output_name,
+        ]
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=600,
+            cwd=str(folder.resolve()),
+        )
+
+        # ??? SRT ??????
+        try:
+            srt_local_path.unlink()
+        except:
+            pass
+
+        if result.returncode != 0:
+            print("[CAPTIONS_VIDEO_ERROR] " + result.stderr[-800:])
+            return None
+
+        return "/uploads/scenes_merged/" + output_name
+
+    except Exception as e:
+        print("[CAPTIONS_VIDEO_ERROR] " + str(e))
+        return None
+
+
+def add_music_to_video(video_path, music_path, output_name=None):
+    """???? ?????? ????? ?????? ????? (????? 20%)"""
+    import subprocess
+    import uuid
+    from pathlib import Path
+    import imageio_ffmpeg
+
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        folder = Path("uploads/scenes_merged")
+        folder.mkdir(parents=True, exist_ok=True)
+
+        if output_name is None:
+            output_name = str(uuid.uuid4()) + "_music.mp4"
+
+        output_path = folder / output_name
+        video_abs = str(Path(video_path).resolve())
+        music_abs = str(Path(music_path).resolve())
+
+        cmd = [
+            ffmpeg_exe, "-y",
+            "-i", video_abs,
+            "-i", music_abs,
+            "-filter_complex",
+            "[1:a]volume=0.2[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+            "-map", "0:v:0",
+            "-map", "[aout]",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
+            str(output_path),
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+
+        if result.returncode != 0:
+            print("[ADD_MUSIC_ERROR] " + result.stderr[-500:])
+            return None
+
+        return "/uploads/scenes_merged/" + output_name
+
+    except Exception as e:
+        print("[ADD_MUSIC_ERROR] " + str(e))
+        return None
+
+
+def full_production_pipeline(brand_data, idea, progress_callback=None):
+    """?? ??????? ??????: ?? ???? ? ????? ?????"""
+    result = {
+        "stages": [],
+        "scenes": [],
+        "final_url": None,
+        "assets": {},
+        "errors": [],
+    }
+
+    def report(stage, status, detail=""):
+        result["stages"].append({"stage": stage, "status": status, "detail": detail})
+        print("[PIPELINE] " + stage + " | " + status + " | " + str(detail))
+        if progress_callback:
+            try:
+                progress_callback(stage, status, detail)
+            except:
+                pass
+
+    try:
+        # Stage 1: Script
+        report("script", "running")
+        scenes_text = generate_script(brand_data, idea)
+        if not scenes_text:
+            result["errors"].append("Script generation failed")
+            report("script", "failed")
+            return result
+        report("script", "done", str(len(scenes_text)) + " scenes")
+
+        brand_colors = (brand_data.get("colors") or {}).get("palette") or []
+        scene_videos_paths = []
+
+        # Stage 2: Generate assets per scene
+        for i, scene in enumerate(scenes_text, start=1):
+            scene_result = {
+                "number": scene.get("number", i),
+                "duration": scene.get("duration", 3),
+                "visual": scene.get("visual", ""),
+                "voice_over": scene.get("voice_over", ""),
+                "on_screen_text": scene.get("on_screen_text", ""),
+                "image_url": None,
+                "video_url": None,
+                "voice_url": None,
+                "merged_url": None,
+            }
+
+            # Image
+            report("image", "running", "scene " + str(i))
+            img = generate_scene_image(
+                visual_description=scene.get("visual", ""),
+                brand_colors=brand_colors,
+                aspect_ratio="9:16",
+            )
+            scene_result["image_url"] = img
+            report("image", "done", "scene " + str(i))
+
+            # Video
+            report("video", "running", "scene " + str(i))
+            vid = generate_scene_video(
+                visual_description=scene.get("visual", ""),
+                duration=scene.get("duration", 3),
+                brand_colors=brand_colors,
+                aspect_ratio="9:16",
+            )
+            scene_result["video_url"] = vid
+            report("video", "done", "scene " + str(i))
+
+            # Voice
+            voice_text = scene.get("voice_over", "")
+            if voice_text:
+                report("voice", "running", "scene " + str(i))
+                voi = generate_scene_voice(voice_text)
+                scene_result["voice_url"] = voi
+                report("voice", "done", "scene " + str(i))
+
+            # Merge scene video + voice
+            if vid and scene_result["voice_url"]:
+                report("merge_scene", "running", "scene " + str(i))
+                merged = merge_scene("." + vid, "." + scene_result["voice_url"])
+                scene_result["merged_url"] = merged
+                if merged:
+                    scene_videos_paths.append("." + merged)
+                report("merge_scene", "done", "scene " + str(i))
+
+            result["scenes"].append(scene_result)
+
+        if not scene_videos_paths:
+            result["errors"].append("No scene videos to combine")
+            return result
+
+        # Stage 3: Combine all scenes
+        report("combine", "running")
+        combined_url = combine_videos(scene_videos_paths)
+        if not combined_url:
+            result["errors"].append("Combine failed")
+            report("combine", "failed")
+            return result
+        report("combine", "done")
+
+        # Stage 4: Music
+        report("music", "running")
+        total_duration = sum(s.get("duration", 3) for s in scenes_text)
+        mood = "cinematic luxury ambient"
+        personality = brand_data.get("personality") or {}
+        if personality.get("emotional_territory"):
+            mood = "cinematic " + str(personality.get("emotional_territory"))
+        music_prompt = "Cinematic luxury brand music, " + mood + ", elegant, warm, professional advertising soundtrack"
+        music_url = generate_scene_music(music_prompt, duration=min(int(total_duration), 120))
+        report("music", "done" if music_url else "failed")
+
+        # Stage 5: Add music to combined
+        final_with_music = combined_url
+        if music_url:
+            report("add_music", "running")
+            final_with_music = add_music_to_video("." + combined_url, "." + music_url)
+            report("add_music", "done" if final_with_music else "failed")
+
+        # Stage 6: Captions
+        report("captions", "running")
+        srt_url = generate_captions(scenes_text)
+        final_url = None
+        if srt_url and final_with_music:
+            final_url = add_captions_to_video("." + final_with_music, "." + srt_url)
+        report("captions", "done" if final_url else "failed")
+
+        result["final_url"] = final_url
+        result["assets"] = {
+            "music_url": music_url,
+            "captions_url": srt_url,
+            "combined_url": combined_url,
+            "with_music_url": final_with_music,
+        }
+
+        report("pipeline", "done" if final_url else "failed")
+
+    except Exception as e:
+        result["errors"].append(str(e))
+        print("[PIPELINE_ERROR] " + str(e))
+
+    return result
+

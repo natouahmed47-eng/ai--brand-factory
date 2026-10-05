@@ -1,5 +1,6 @@
 import os
 import uuid
+import threading
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.staticfiles import StaticFiles
@@ -73,6 +74,22 @@ class Brand(Base):
     personality: Mapped[dict] = mapped_column(JSON, nullable=True)
     audience: Mapped[dict] = mapped_column(JSON, nullable=True)
     rules: Mapped[dict] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    workspace_id: Mapped[str] = mapped_column(String, ForeignKey("workspaces.id"))
+    brand_id: Mapped[str] = mapped_column(String, ForeignKey("brands.id"))
+    idea: Mapped[dict] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="pending")
+    stage: Mapped[str] = mapped_column(String, default="")
+    scenes: Mapped[dict] = mapped_column(JSON, nullable=True)
+    assets: Mapped[dict] = mapped_column(JSON, nullable=True)
+    final_url: Mapped[str] = mapped_column(String, nullable=True)
+    error: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -504,3 +521,147 @@ def campaign_captions(
         raise HTTPException(status_code=500, detail="Failed to generate captions")
 
     return {"captions_url": url}
+
+
+# ============ Campaigns Production ============
+def _run_pipeline_thread(campaign_id: str):
+    from ai_service import full_production_pipeline
+    db = SessionLocal()
+    try:
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if not campaign:
+            return
+        brand = db.query(Brand).filter(Brand.id == campaign.brand_id).first()
+        if not brand:
+            campaign.status = "failed"
+            campaign.error = "Brand not found"
+            db.commit()
+            return
+
+        brand_data = {
+            "name": brand.name,
+            "personality": brand.personality or {},
+            "audience": brand.audience or {},
+            "colors": brand.colors or {},
+        }
+
+        def update_progress(stage, status, detail):
+            try:
+                local_db = SessionLocal()
+                cc = local_db.query(Campaign).filter(Campaign.id == campaign_id).first()
+                if cc:
+                    cc.stage = str(stage) + " | " + str(status) + ((" | " + str(detail)) if detail else "")
+                    local_db.commit()
+                local_db.close()
+            except Exception as e:
+                print("[PROGRESS_ERR] " + str(e))
+
+        campaign.status = "running"
+        db.commit()
+
+        result = full_production_pipeline(brand_data, campaign.idea or {}, progress_callback=update_progress)
+
+        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+        if result.get("final_url"):
+            campaign.status = "done"
+            campaign.final_url = result.get("final_url")
+        else:
+            campaign.status = "failed"
+        campaign.scenes = result.get("scenes")
+        campaign.assets = result.get("assets")
+        campaign.error = "; ".join(result.get("errors", [])) or None
+        campaign.stage = "complete"
+        db.commit()
+    except Exception as e:
+        print("[PIPELINE_THREAD_ERR] " + str(e))
+        try:
+            campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
+            if campaign:
+                campaign.status = "failed"
+                campaign.error = str(e)
+                db.commit()
+        except:
+            pass
+    finally:
+        db.close()
+
+
+class CreateCampaignRequest(BaseModel):
+    brand_id: str
+    idea: dict
+
+
+@app.post("/campaigns")
+def create_campaign(
+    data: CreateCampaignRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    brand = db.query(Brand).filter(
+        Brand.id == data.brand_id,
+        Brand.workspace_id == user.workspace_id,
+    ).first()
+    if not brand:
+        raise HTTPException(status_code=404, detail="Brand not found")
+
+    campaign = Campaign(
+        workspace_id=user.workspace_id,
+        brand_id=data.brand_id,
+        idea=data.idea,
+        status="pending",
+        stage="starting",
+    )
+    db.add(campaign)
+    db.commit()
+    db.refresh(campaign)
+
+    thread = threading.Thread(target=_run_pipeline_thread, args=(campaign.id,), daemon=True)
+    thread.start()
+
+    return {"id": campaign.id, "status": campaign.status, "stage": campaign.stage}
+
+
+@app.get("/campaigns")
+def list_campaigns(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    campaigns = db.query(Campaign).filter(Campaign.workspace_id == user.workspace_id).order_by(Campaign.created_at.desc()).all()
+    return [
+        {
+            "id": cc.id,
+            "brand_id": cc.brand_id,
+            "status": cc.status,
+            "stage": cc.stage,
+            "final_url": cc.final_url,
+            "created_at": cc.created_at.isoformat(),
+        }
+        for cc in campaigns
+    ]
+
+
+@app.get("/campaigns/{campaign_id}")
+def get_campaign(
+    campaign_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    campaign = db.query(Campaign).filter(
+        Campaign.id == campaign_id,
+        Campaign.workspace_id == user.workspace_id,
+    ).first()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+
+    return {
+        "id": campaign.id,
+        "brand_id": campaign.brand_id,
+        "idea": campaign.idea,
+        "status": campaign.status,
+        "stage": campaign.stage,
+        "scenes": campaign.scenes,
+        "assets": campaign.assets,
+        "final_url": campaign.final_url,
+        "error": campaign.error,
+        "created_at": campaign.created_at.isoformat(),
+    }
