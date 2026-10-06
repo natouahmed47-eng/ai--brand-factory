@@ -498,7 +498,7 @@ def generate_scene_voice(text, voice="Aria", language_code="ar"):
         return None
 
 
-def generate_scene_voice(text, voice_id="CwhRBWXzGAHq8TQ4Fs17", model="eleven_v3", stability=0.4, similarity_boost=0.85, style=0.6, speed=1.0):
+def generate_scene_voice(text, voice_id="CwhRBWXzGAHq8TQ4Fs17", model="eleven_v4", stability=0.5, similarity_boost=0.75, style=0.0, speed=1.0):
     import os
     import uuid
     from pathlib import Path
@@ -986,7 +986,7 @@ def full_production_pipeline(brand_data, idea, product=None, max_scenes=None, pr
 
             # Video
             report("video", "running", "scene " + str(i))
-            vid = generate_scene_video_agnes(
+            vid = generate_scene_video_dashscope(
                 visual_description=scene_visual,
                 duration=scene.get("duration", 3),
                 brand_colors=brand_colors,
@@ -1208,7 +1208,7 @@ def generate_scene_video_wan(visual_description, duration=5, brand_colors=None, 
         print("[WAN_GEN_ERROR] " + str(e))
         return None
 
-def generate_scene_video_agnes(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+def generate_scene_video_dashscope(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
     """يولّد فيديو عبر Magic Hour - 120 credits لكل 5 ثوانٍ (400 مجانًا)"""
     import os
     import time
@@ -1299,7 +1299,7 @@ def generate_scene_video_agnes(visual_description, duration=5, brand_colors=None
         print("[MH_GEN_ERROR] " + str(e))
         return None
 
-def generate_scene_video_agnes(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+def generate_scene_video_dashscope(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
     """يولّد فيديو عبر Agnes AI (مجاني تمامًا - Unlimited)"""
     import os
     import time
@@ -1351,27 +1351,44 @@ def generate_scene_video_agnes(visual_description, duration=5, brand_colors=None
         if r.status_code == 429:
             print("[AGNES_ERROR] Rate limit. Waiting 60s...")
             time.sleep(60)
-            return generate_scene_video_agnes(visual_description, duration, brand_colors, aspect_ratio)
+            return generate_scene_video_dashscope(visual_description, duration, brand_colors, aspect_ratio)
 
         if r.status_code != 200:
             print("[AGNES_ERROR] Submit: " + str(r.status_code) + " | " + r.text[:300])
             return None
 
         data = r.json()
-        video_id = data.get("video_id") or data.get("id")
+        task_id = data.get("id")
+        video_id = data.get("video_id")
+        print("[AGNES] Task ID: " + str(task_id))
         print("[AGNES] Video ID: " + str(video_id))
 
         for i in range(120):
-            time.sleep(10)
+            time.sleep(15)
             try:
-                check = requests.get(
-                    "https://apihub.agnes-ai.com/v1/videos/" + str(video_id),
-                    headers=headers,
-                    timeout=30,
-                )
-                job = check.json()
-                status = job.get("status") or job.get("state")
+                job = None
+                endpoints = [
+                    "https://apihub.agnes-ai.com/v1/videos/" + str(task_id),
+                    "https://apihub.agnes-ai.com/v1/tasks/" + str(task_id),
+                ]
+                for ep in endpoints:
+                    try:
+                        check = requests.get(ep, headers=headers, timeout=30)
+                        if check.status_code == 200:
+                            job = check.json()
+                            break
+                    except:
+                        continue
+
+                if not job:
+                    print("[AGNES] No valid endpoint response")
+                    continue
+
+                status = job.get("status") or job.get("state") or job.get("task_status")
                 print("[AGNES] Status: " + str(status))
+
+                if status is None:
+                    print("[AGNES] Full response: " + str(job)[:400])
 
                 if status in ["completed", "succeeded", "success", "done"]:
                     video_url = job.get("url") or job.get("video_url") or (job.get("output") or {}).get("url")
@@ -1478,5 +1495,94 @@ def generate_scene_image_agnes(visual_description, brand_colors=None, aspect_rat
 
     except Exception as e:
         print("[AGNES_IMG_ERROR] " + str(e))
+        return None
+
+def generate_scene_video_dashscope(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+    """يولّد فيديو عبر Wan 2.2 على Alibaba Cloud International (رخيص + سريع)"""
+    import os
+    import time
+    import uuid
+    import requests
+    from pathlib import Path
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    if not api_key:
+        print("[DASHSCOPE_ERROR] No API key")
+        return None
+
+    import dashscope
+    dashscope.base_http_api_url = "https://dashscope-intl.aliyuncs.com/api/v1"
+    dashscope.api_key = api_key
+
+    from dashscope import VideoSynthesis
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
+
+    prompt = "Cinematic advertising video. " + str(visual_description) + colors_str
+
+    # Size based on aspect ratio (wan2.2-t2v-plus supports: 1920*1080, 1080*1920)
+    if aspect_ratio == "9:16":
+        size = "1080*1920"
+    elif aspect_ratio == "16:9":
+        size = "1920*1080"
+    elif aspect_ratio == "1:1":
+        size = "1080*1920"
+    else:
+        size = "1080*1920"
+
+    try:
+        print("[DASHSCOPE] Submitting...")
+        rsp = VideoSynthesis.async_call(
+            model="wan2.2-t2v-plus",
+            prompt=prompt,
+            size=size,
+        )
+
+        if rsp.status_code != 200:
+            print("[DASHSCOPE_ERROR] Submit: " + str(rsp.status_code) + " | " + str(rsp.message))
+            return None
+
+        task_id = rsp.output.task_id
+        print("[DASHSCOPE] Task ID: " + str(task_id))
+
+        for i in range(120):
+            time.sleep(10)
+            try:
+                status_rsp = VideoSynthesis.fetch(task_id)
+                status = status_rsp.output.task_status
+                print("[DASHSCOPE] Status: " + str(status))
+
+                if status == "SUCCEEDED":
+                    video_url = status_rsp.output.video_url
+                    print("[DASHSCOPE] Video URL obtained")
+
+                    filename = str(uuid.uuid4()) + ".mp4"
+                    folder = Path("uploads/videos")
+                    folder.mkdir(parents=True, exist_ok=True)
+                    local_path = folder / filename
+
+                    video_data = requests.get(video_url, timeout=300)
+                    with open(local_path, "wb") as f:
+                        f.write(video_data.content)
+
+                    return "/uploads/videos/" + filename
+
+                elif status in ["FAILED", "CANCELED", "UNKNOWN"]:
+                    print("[DASHSCOPE_ERROR] " + str(status_rsp)[:400])
+                    return None
+
+            except Exception as e:
+                print("[DASHSCOPE_POLL_ERR] " + str(e)[:100])
+
+        print("[DASHSCOPE_ERROR] Timeout")
+        return None
+
+    except Exception as e:
+        print("[DASHSCOPE_ERROR] " + str(e))
         return None
 

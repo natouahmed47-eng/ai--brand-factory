@@ -1034,10 +1034,14 @@ def upload_product_image(
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    import json as _json_img
     images = list(product.images or [])
     images.append("/uploads/products/" + filename)
-    product.images = images
-    flag_modified(product, "images")
+    images_json = _json_img.dumps(images)
+    db.execute(
+        text("UPDATE products SET images = CAST(:i AS jsonb) WHERE id = :id"),
+        {"i": images_json, "id": product_id}
+    )
     db.commit()
     db.refresh(product)
 
