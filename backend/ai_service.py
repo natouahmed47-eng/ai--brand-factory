@@ -916,7 +916,7 @@ def add_music_to_video(video_path, music_path, output_name=None):
         return None
 
 
-def full_production_pipeline(brand_data, idea, product=None, progress_callback=None):
+def full_production_pipeline(brand_data, idea, product=None, max_scenes=None, progress_callback=None):
     """?? ??????? ??????: ?? ???? ? ????? ?????"""
     result = {
         "stages": [],
@@ -943,6 +943,11 @@ def full_production_pipeline(brand_data, idea, product=None, progress_callback=N
             result["errors"].append("Script generation failed")
             report("script", "failed")
             return result
+
+        if max_scenes and len(scenes_text) > max_scenes:
+            scenes_text = scenes_text[:max_scenes]
+            print("[PIPELINE] Limited to " + str(max_scenes) + " scenes (test mode)")
+
         report("script", "done", str(len(scenes_text)) + " scenes")
 
         brand_colors = (brand_data.get("colors") or {}).get("palette") or []
@@ -971,7 +976,7 @@ def full_production_pipeline(brand_data, idea, product=None, progress_callback=N
                     product_context += " - " + str(product.get("description"))
                 scene_visual = product_context + ". " + scene_visual
 
-            img = generate_scene_image(
+            img = generate_scene_image_agnes(
                 visual_description=scene_visual,
                 brand_colors=brand_colors,
                 aspect_ratio="9:16",
@@ -981,7 +986,7 @@ def full_production_pipeline(brand_data, idea, product=None, progress_callback=N
 
             # Video
             report("video", "running", "scene " + str(i))
-            vid = generate_scene_video(
+            vid = generate_scene_video_agnes(
                 visual_description=scene_visual,
                 duration=scene.get("duration", 3),
                 brand_colors=brand_colors,
@@ -1121,3 +1126,357 @@ def generate_video_formats(input_video_path, base_name=None):
     except Exception as e:
         print("[FORMATS_ERROR] " + str(e))
         return {}
+
+def generate_scene_video_wan(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+    """يولّد فيديو باستخدام Wan (Alibaba DashScope) - تكلفة أقل بـ10x"""
+    import os
+    import time
+    import uuid
+    import requests
+    from pathlib import Path
+    import dashscope
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    dashscope.api_key = api_key
+    dashscope.base_http_api_url = "https://dashscope.aliyuncs.com/api/v1"
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
+
+    prompt = "Cinematic advertising video. " + str(visual_description) + colors_str
+
+    if aspect_ratio == "9:16":
+        size = "720*1280"
+    elif aspect_ratio == "1:1":
+        size = "1024*1024"
+    elif aspect_ratio == "16:9":
+        size = "1280*720"
+    else:
+        size = "720*1280"
+
+    try:
+        from dashscope import VideoSynthesis
+
+        print("[WAN_GEN] Submitting task...")
+
+        rsp = VideoSynthesis.async_call(
+            model="wan2.2-t2v-plus",
+            prompt=prompt,
+            size=size,
+        )
+
+        if rsp.status_code != 200:
+            print("[WAN_GEN_ERROR] Submit failed: " + str(rsp.status_code) + " | " + str(rsp.message))
+            return None
+
+        task_id = rsp.output.task_id
+        print("[WAN_GEN] Task ID: " + str(task_id))
+
+        for i in range(120):
+            time.sleep(5)
+            status_rsp = VideoSynthesis.fetch(task_id)
+            status = status_rsp.output.task_status
+            print("[WAN_GEN] Status: " + str(status))
+
+            if status == "SUCCEEDED":
+                video_url = status_rsp.output.video_url
+                print("[WAN_GEN] Video URL obtained")
+
+                filename = str(uuid.uuid4()) + ".mp4"
+                folder = Path("uploads/videos")
+                folder.mkdir(parents=True, exist_ok=True)
+                local_path = folder / filename
+
+                video_data = requests.get(video_url, timeout=300)
+                with open(local_path, "wb") as f:
+                    f.write(video_data.content)
+
+                return "/uploads/videos/" + filename
+
+            elif status == "FAILED":
+                print("[WAN_GEN_ERROR] Task failed: " + str(status_rsp.output))
+                return None
+
+        print("[WAN_GEN_ERROR] Timeout")
+        return None
+
+    except Exception as e:
+        print("[WAN_GEN_ERROR] " + str(e))
+        return None
+
+def generate_scene_video_agnes(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+    """يولّد فيديو عبر Magic Hour - 120 credits لكل 5 ثوانٍ (400 مجانًا)"""
+    import os
+    import time
+    import uuid
+    import requests
+    from pathlib import Path
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    api_key = os.getenv("MAGICHOUR_API_KEY")
+    if not api_key:
+        print("[MH_GEN_ERROR] No API key")
+        return None
+
+    headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
+
+    prompt = "Cinematic advertising video. " + str(visual_description) + colors_str
+
+    end_seconds = min(max(int(duration), 3), 5)
+
+    payload = {
+        "name": "Scene Video",
+        "end_seconds": end_seconds,
+        "model": "ltx-2.5",
+        "resolution": "480p",
+        "aspect_ratio": aspect_ratio,
+        "style": {"prompt": prompt},
+    }
+
+    try:
+        print("[MH_GEN] Submitting...")
+        r = requests.post(
+            "https://api.magichour.ai/v1/text-to-video",
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+
+        if r.status_code != 200:
+            print("[MH_GEN_ERROR] Submit: " + str(r.status_code) + " | " + r.text[:300])
+            return None
+
+        data = r.json()
+        job_id = data.get("id")
+        print("[MH_GEN] Job ID: " + str(job_id) + " | Credits: " + str(data.get("credits_charged")))
+
+        for i in range(60):
+            time.sleep(5)
+            check = requests.get(
+                "https://api.magichour.ai/v1/video-projects/" + job_id,
+                headers=headers,
+                timeout=30,
+            )
+            job = check.json()
+            status = job.get("status")
+            print("[MH_GEN] Status: " + str(status))
+
+            if status == "complete":
+                video_url = (job.get("download") or {}).get("url")
+                if not video_url:
+                    print("[MH_GEN_ERROR] No URL")
+                    return None
+
+                filename = str(uuid.uuid4()) + ".mp4"
+                folder = Path("uploads/videos")
+                folder.mkdir(parents=True, exist_ok=True)
+                local_path = folder / filename
+
+                video_data = requests.get(video_url, timeout=300)
+                with open(local_path, "wb") as f:
+                    f.write(video_data.content)
+
+                return "/uploads/videos/" + filename
+
+            elif status == "error":
+                print("[MH_GEN_ERROR] " + str(job))
+                return None
+
+        print("[MH_GEN_ERROR] Timeout")
+        return None
+
+    except Exception as e:
+        print("[MH_GEN_ERROR] " + str(e))
+        return None
+
+def generate_scene_video_agnes(visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+    """يولّد فيديو عبر Agnes AI (مجاني تمامًا - Unlimited)"""
+    import os
+    import time
+    import uuid
+    import requests
+    from pathlib import Path
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    api_key = os.getenv("AGNES_API_KEY")
+    if not api_key:
+        print("[AGNES_ERROR] No API key")
+        return None
+
+    headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
+
+    prompt = "Cinematic advertising video. " + str(visual_description) + colors_str
+
+    if aspect_ratio == "9:16":
+        width, height = 720, 1280
+    elif aspect_ratio == "16:9":
+        width, height = 1280, 720
+    elif aspect_ratio == "1:1":
+        width, height = 1080, 1080
+    else:
+        width, height = 720, 1280
+
+    try:
+        print("[AGNES] Submitting...")
+        r = requests.post(
+            "https://apihub.agnes-ai.com/v1/videos",
+            headers=headers,
+            json={
+                "model": "agnes-video-v2.0",
+                "prompt": prompt,
+                "height": height,
+                "width": width,
+                "num_frames": 121,
+                "frame_rate": 24,
+            },
+            timeout=120,
+        )
+
+        if r.status_code == 429:
+            print("[AGNES_ERROR] Rate limit. Waiting 60s...")
+            time.sleep(60)
+            return generate_scene_video_agnes(visual_description, duration, brand_colors, aspect_ratio)
+
+        if r.status_code != 200:
+            print("[AGNES_ERROR] Submit: " + str(r.status_code) + " | " + r.text[:300])
+            return None
+
+        data = r.json()
+        video_id = data.get("video_id") or data.get("id")
+        print("[AGNES] Video ID: " + str(video_id))
+
+        for i in range(120):
+            time.sleep(10)
+            try:
+                check = requests.get(
+                    "https://apihub.agnes-ai.com/v1/videos/" + str(video_id),
+                    headers=headers,
+                    timeout=30,
+                )
+                job = check.json()
+                status = job.get("status") or job.get("state")
+                print("[AGNES] Status: " + str(status))
+
+                if status in ["completed", "succeeded", "success", "done"]:
+                    video_url = job.get("url") or job.get("video_url") or (job.get("output") or {}).get("url")
+                    if not video_url:
+                        print("[AGNES_ERROR] No URL in: " + str(job)[:300])
+                        return None
+
+                    filename = str(uuid.uuid4()) + ".mp4"
+                    folder = Path("uploads/videos")
+                    folder.mkdir(parents=True, exist_ok=True)
+                    local_path = folder / filename
+
+                    video_data = requests.get(video_url, timeout=300)
+                    with open(local_path, "wb") as f:
+                        f.write(video_data.content)
+
+                    return "/uploads/videos/" + filename
+
+                elif status in ["failed", "error"]:
+                    print("[AGNES_ERROR] " + str(job)[:300])
+                    return None
+
+            except Exception as e:
+                print("[AGNES_POLL_ERR] " + str(e)[:100])
+
+        print("[AGNES_ERROR] Timeout")
+        return None
+
+    except Exception as e:
+        print("[AGNES_ERROR] " + str(e))
+        return None
+
+def generate_scene_image_agnes(visual_description, brand_colors=None, aspect_ratio="9:16"):
+    """يولّد صورة عبر Agnes AI (مجاني)"""
+    import os
+    import time
+    import uuid
+    import requests
+    from pathlib import Path
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    api_key = os.getenv("AGNES_API_KEY")
+    headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
+
+    prompt = "Professional advertising photograph. " + str(visual_description) + colors_str
+
+    if aspect_ratio == "9:16":
+        size = "768x1024"
+    elif aspect_ratio == "16:9":
+        size = "1024x768"
+    else:
+        size = "1024x1024"
+
+    try:
+        print("[AGNES_IMG] Submitting...")
+        r = requests.post(
+            "https://apihub.agnes-ai.com/v1/images/generations",
+            headers=headers,
+            json={
+                "model": "agnes-image-2.1-flash",
+                "prompt": prompt,
+                "size": size,
+            },
+            timeout=120,
+        )
+
+        if r.status_code == 429:
+            print("[AGNES_IMG] Rate limit, waiting 30s...")
+            time.sleep(30)
+            return generate_scene_image_agnes(visual_description, brand_colors, aspect_ratio)
+
+        if r.status_code != 200:
+            print("[AGNES_IMG_ERROR] " + str(r.status_code) + " | " + r.text[:300])
+            return None
+
+        data = r.json()
+        
+        # Try multiple response formats
+        img_url = None
+        if isinstance(data.get("data"), list) and len(data["data"]) > 0:
+            img_url = data["data"][0].get("url")
+        if not img_url:
+            img_url = data.get("url") or (data.get("output") or {}).get("url")
+
+        if not img_url:
+            print("[AGNES_IMG_ERROR] No URL in: " + str(data)[:300])
+            return None
+
+        filename = str(uuid.uuid4()) + ".png"
+        folder = Path("uploads/scenes")
+        folder.mkdir(parents=True, exist_ok=True)
+        local_path = folder / filename
+
+        img_data = requests.get(img_url, timeout=120)
+        with open(local_path, "wb") as f:
+            f.write(img_data.content)
+
+        return "/uploads/scenes/" + filename
+
+    except Exception as e:
+        print("[AGNES_IMG_ERROR] " + str(e))
+        return None
+

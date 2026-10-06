@@ -96,6 +96,31 @@ export default function CreateCampaignPage() {
 
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+
+    // Polling fallback: even if WS fails, poll every 5s
+    const pollInterval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:8000/campaigns/' + campaignId, {
+          headers: { Authorization: 'Bearer ' + token },
+        });
+        const data = await res.json();
+        setCampaign({
+          id: campaignId,
+          status: data.status,
+          stage: data.stage,
+          final_url: data.final_url,
+          error: data.error,
+        });
+        if (data.status === 'done') {
+          setStage('done');
+          clearInterval(pollInterval);
+        } else if (data.status === 'failed') {
+          setStage('failed');
+          clearInterval(pollInterval);
+        }
+      } catch {}
+    }, 5000);
   };
 
   const handleGenerateIdeas = async () => {

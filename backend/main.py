@@ -608,10 +608,14 @@ def _run_pipeline_thread(campaign_id: str):
             campaign.final_url = result.get("final_url")
         else:
             campaign.status = "failed"
-        campaign.scenes = result.get("scenes")
-        campaign.assets = result.get("assets")
-        campaign.error = "; ".join(result.get("errors", [])) or None
-        campaign.stage = "complete"
+        import json as _json2
+        scenes_json = _json2.dumps(result.get("scenes") or [])
+        assets_json = _json2.dumps(result.get("assets") or {})
+        error_val = "; ".join(result.get("errors", [])) or None
+        db.execute(
+            text("UPDATE campaigns SET scenes = CAST(:s AS jsonb), assets = CAST(:a AS jsonb), error = :e, stage = 'complete' WHERE id = :id"),
+            {"s": scenes_json, "a": assets_json, "e": error_val, "id": campaign_id}
+        )
         db.commit()
     except Exception as e:
         print("[PIPELINE_THREAD_ERR] " + str(e))
@@ -787,8 +791,13 @@ def regenerate_scene(
         if merged:
             scene["merged_url"] = merged
 
+    import json as _json
     scenes[scene_index] = scene
-    campaign.scenes = scenes
+    scenes_json = _json.dumps(scenes)
+    db.execute(
+        text("UPDATE campaigns SET scenes = CAST(:s AS jsonb) WHERE id = :id"),
+        {"s": scenes_json, "id": campaign_id}
+    )
     db.commit()
     db.refresh(campaign)
 
@@ -858,16 +867,19 @@ def rebuild_campaign(
     if srt_url:
         final_url = add_captions_to_video("." + with_music, "." + srt_url)
 
-    campaign.final_url = final_url
-    campaign.assets = {
+    import json as _json3
+    assets_new = {
         "music_url": music_url,
         "captions_url": srt_url,
         "combined_url": combined,
         "with_music_url": with_music,
     }
-    if final_url:
-        campaign.status = "done"
-        campaign.error = None
+    assets_json = _json3.dumps(assets_new)
+    new_status = "done" if final_url else campaign.status
+    db.execute(
+        text("UPDATE campaigns SET final_url = :f, assets = CAST(:a AS jsonb), status = :st, error = NULL WHERE id = :id"),
+        {"f": final_url, "a": assets_json, "st": new_status, "id": campaign_id}
+    )
     db.commit()
     db.refresh(campaign)
 
@@ -1022,7 +1034,6 @@ def upload_product_image(
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    from sqlalchemy.orm.attributes import flag_modified
     images = list(product.images or [])
     images.append("/uploads/products/" + filename)
     product.images = images

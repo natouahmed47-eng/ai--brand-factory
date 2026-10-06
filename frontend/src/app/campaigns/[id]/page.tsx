@@ -28,8 +28,10 @@ export default function CampaignDetailPage() {
   const [formats, setFormats] = useState<any>(null);
   const [generatingFormats, setGeneratingFormats] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
@@ -131,7 +133,7 @@ export default function CampaignDetailPage() {
     setRebuilding(false);
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <main className="min-h-screen bg-gray-900 flex items-center justify-center">
         <p className="text-white">جاري التحميل...</p>
@@ -345,50 +347,110 @@ export default function CampaignDetailPage() {
                 </button>
               )}
             </div>
-            <div className="space-y-4">
+            <div className="space-y-6">
               {campaign.scenes.map((scene: any) => {
                 const hasVideo = !!scene.video_url;
                 const hasMerged = !!scene.merged_url;
+                const hasImage = !!scene.image_url;
+                const hasVoice = !!scene.voice_url;
                 return (
-                  <div
-                    key={scene.number}
-                    className="bg-white/5 border border-white/10 rounded-xl p-4"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-lg font-bold">
-                          {scene.number}
-                        </div>
-                        <div>
-                          <div className="font-bold">مشهد {scene.number}</div>
-                          <div className="text-xs text-gray-400">
-                            {scene.duration}ث
-                            {hasMerged && ' • ✓ مكتمل'}
-                            {!hasMerged && hasVideo && ' • ⚠ بدون دمج'}
-                            {!hasVideo && ' • ❌ فاشل'}
+                  <div key={scene.number} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                    <div className="flex flex-col md:flex-row gap-4 p-4">
+                      {/* Image Thumbnail */}
+                      <div className="flex-shrink-0 w-full md:w-40">
+                        {hasImage ? (
+                          <img
+                            src={'http://localhost:8000' + scene.image_url}
+                            alt={'Scene ' + scene.number}
+                            className="w-full h-40 md:h-40 object-cover rounded-lg border border-white/10"
+                          />
+                        ) : (
+                          <div className="w-full h-40 bg-white/5 rounded-lg border border-white/10 flex items-center justify-center text-gray-500 text-xs">
+                            لا توجد صورة
                           </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-lg font-bold">
+                              {scene.number}
+                            </div>
+                            <div>
+                              <div className="font-bold">مشهد {scene.number}</div>
+                              <div className="text-xs text-gray-400">
+                                {scene.duration}ث
+                                {hasMerged && ' • ✓ مكتمل'}
+                                {!hasMerged && hasVideo && ' • ⚠ بدون دمج'}
+                                {!hasVideo && ' • ❌ فاشل'}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleRegenerateScene(scene.number)}
+                            disabled={regenLoading === scene.number}
+                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-50 rounded-lg text-xs font-semibold transition"
+                          >
+                            {regenLoading === scene.number ? '⏳' : '🔄 إعادة التوليد'}
+                          </button>
+                        </div>
+
+                        {scene.visual && (
+                          <p className="text-xs text-gray-400 mb-2">
+                            <span className="text-gray-500">بصري: </span>
+                            {scene.visual}
+                          </p>
+                        )}
+                        {scene.voice_over && (
+                          <p className="text-xs text-gray-400 italic mb-3">
+                            <span className="text-gray-500 not-italic">صوت: </span>
+                            {scene.voice_over}
+                          </p>
+                        )}
+
+                        {/* Media Players */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {hasMerged && (
+                            <details className="text-xs">
+                              <summary className="cursor-pointer px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 inline-block">
+                                🎬 عرض الفيديو المدموج
+                              </summary>
+                              <video
+                                controls
+                                className="mt-3 w-full max-w-md rounded-lg border border-white/10"
+                                src={'http://localhost:8000' + scene.merged_url}
+                              />
+                            </details>
+                          )}
+                          {!hasMerged && hasVideo && (
+                            <details className="text-xs">
+                              <summary className="cursor-pointer px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 rounded-lg border border-yellow-500/30 inline-block">
+                                🎬 عرض الفيديو (بدون صوت)
+                              </summary>
+                              <video
+                                controls
+                                className="mt-3 w-full max-w-md rounded-lg border border-white/10"
+                                src={'http://localhost:8000' + scene.video_url}
+                              />
+                            </details>
+                          )}
+                          {hasVoice && (
+                            <details className="text-xs">
+                              <summary className="cursor-pointer px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg border border-purple-500/30 inline-block">
+                                🎙️ سماع الصوت
+                              </summary>
+                              <audio
+                                controls
+                                className="mt-3 w-full max-w-md"
+                                src={'http://localhost:8000' + scene.voice_url}
+                              />
+                            </details>
+                          )}
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleRegenerateScene(scene.number)}
-                        disabled={regenLoading === scene.number}
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 rounded-lg text-xs font-semibold transition"
-                      >
-                        {regenLoading === scene.number ? '⏳ جاري...' : '🔄 إعادة التوليد'}
-                      </button>
                     </div>
-                    {scene.visual && (
-                      <p className="text-xs text-gray-400 mb-2">
-                        <span className="text-gray-500">بصري: </span>
-                        {scene.visual}
-                      </p>
-                    )}
-                    {scene.voice_over && (
-                      <p className="text-xs text-gray-400 italic">
-                        <span className="text-gray-500">صوت: </span>
-                        {scene.voice_over}
-                      </p>
-                    )}
                   </div>
                 );
               })}
