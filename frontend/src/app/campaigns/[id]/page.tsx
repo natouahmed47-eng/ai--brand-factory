@@ -135,7 +135,7 @@ export default function CampaignDetailPage() {
 
   if (!mounted || loading) {
     return (
-      <main className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <main className="min-h-screen bg-[#0B0B0D] flex items-center justify-center">
         <p className="text-white">جاري التحميل...</p>
       </main>
     );
@@ -143,14 +143,14 @@ export default function CampaignDetailPage() {
 
   if (!campaign) {
     return (
-      <main className="min-h-screen bg-gray-900 text-white">
-        <nav className="border-b border-white/10 px-6 py-4">
-          <Link href="/dashboard" className="text-blue-400 hover:underline text-sm">
+      <main className="min-h-screen bg-[#0B0B0D] text-[#F5F5F0]">
+        <nav className="border-b border-[rgba(212,165,116,0.12)] px-6 py-4">
+          <Link href="/dashboard" className="text-[#D4A574] hover:underline text-sm">
             ← العودة إلى اللوحة
           </Link>
         </nav>
         <div className="container mx-auto px-6 py-12 text-center">
-          <p className="text-red-400">الحملة غير موجودة</p>
+          <p className="text-[#E05252]">الحملة غير موجودة</p>
         </div>
       </main>
     );
@@ -161,26 +161,26 @@ export default function CampaignDetailPage() {
   const isFailed = campaign.status === 'failed';
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white" dir="rtl">
-      <nav className="border-b border-white/10 px-6 py-4 flex justify-between items-center">
-        <Link href="/dashboard" className="text-blue-400 hover:underline text-sm">
+    <main className="min-h-screen bg-[#0B0B0D] text-[#F5F5F0]" dir="rtl">
+      <nav className="border-b border-[rgba(212,165,116,0.12)] px-6 py-4 flex justify-between items-center">
+        <Link href="/dashboard" className="text-[#D4A574] hover:underline text-sm">
           ← العودة إلى اللوحة
         </Link>
-        <Link href={'/brands/' + campaign.brand_id} className="text-blue-400 hover:underline text-sm">
+        <Link href={'/brands/' + campaign.brand_id} className="text-[#D4A574] hover:underline text-sm">
           صفحة البراند →
         </Link>
       </nav>
 
       <div className="container mx-auto px-6 py-12 max-w-4xl">
         <div className="mb-8">
-          <span className="text-sm text-gray-400">حملة إعلانية</span>
+          <span className="text-sm text-[#8B8B8B]">حملة إعلانية</span>
           <h1 className="text-3xl font-bold mt-1">
             {campaign.idea?.title || 'حملة بدون عنوان'}
           </h1>
           {campaign.idea?.description && (
-            <p className="text-gray-400 mt-2">{campaign.idea.description}</p>
+            <p className="text-[#8B8B8B] mt-2">{campaign.idea.description}</p>
           )}
-          <p className="text-sm text-gray-500 mt-3">
+          <p className="text-sm text-[#5A5A5A] mt-3">
             {new Date(campaign.created_at).toLocaleDateString('ar-EG', {
               year: 'numeric',
               month: 'long',
@@ -196,7 +196,7 @@ export default function CampaignDetailPage() {
             <h2 className="text-2xl font-bold mb-6">الفيديو النهائي</h2>
             <video
               controls
-              className="w-full max-w-md mx-auto rounded-2xl border border-white/10 shadow-2xl mb-8"
+              className="w-full max-w-md mx-auto rounded-2xl border border-[rgba(212,165,116,0.12)] shadow-2xl mb-8"
               src={'http://localhost:8000' + campaign.final_url}
             />
             <div className="flex gap-4 justify-center flex-wrap">
@@ -218,7 +218,7 @@ export default function CampaignDetailPage() {
                     alert('فشل التحميل');
                   }
                 }}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 rounded-lg font-semibold transition"
+                className="px-6 py-3 bg-[#D4A574] hover:opacity-90 rounded-lg font-semibold transition"
               >
                 ⬇️ تحميل الفيديو
               </button>
@@ -227,49 +227,49 @@ export default function CampaignDetailPage() {
         )}
 
         {isDone && (
-          <div className="mt-12 bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="mt-12 bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">صيغ متعددة للمنصات</h3>
               <button
                 onClick={handleGenerateFormats}
                 disabled={generatingFormats}
-                className="px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 disabled:opacity-50 rounded-lg text-sm font-semibold transition"
+                className="px-5 py-2 bg-[#D4A574] hover:opacity-90 disabled:opacity-50 rounded-lg text-sm font-semibold transition"
               >
                 {generatingFormats ? '⏳ جاري التوليد...' : '🎬 ولّد 3 صيغ'}
               </button>
             </div>
 
             {!formats && !generatingFormats && (
-              <p className="text-sm text-gray-400 text-center py-4">
+              <p className="text-sm text-[#8B8B8B] text-center py-4">
                 اضغط الزر لتوليد نسخ جاهزة لكل المنصات (TikTok، Instagram، YouTube).
               </p>
             )}
 
             {generatingFormats && !formats && (
               <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-blue-500 border-t-transparent mb-4" />
-                <p className="text-sm text-gray-400">جاري توليد 3 صيغ...</p>
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-[#D4A574] border-t-transparent mb-4" />
+                <p className="text-sm text-[#8B8B8B]">جاري توليد 3 صيغ...</p>
               </div>
             )}
 
             {formats && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-xl p-4">
                   <div className="text-center mb-3">
                     <div className="text-sm font-bold">9:16 عمودي</div>
-                    <div className="text-xs text-gray-400">TikTok • Reels • Shorts</div>
+                    <div className="text-xs text-[#8B8B8B]">TikTok • Reels • Shorts</div>
                   </div>
                   {formats.vertical_9x16 && (
                     <>
                       <video
                         controls
-                        className="w-full rounded-lg border border-white/10 mb-3"
+                        className="w-full rounded-lg border border-[rgba(212,165,116,0.12)] mb-3"
                         src={'http://localhost:8000' + formats.vertical_9x16}
                       />
                       <a
                         href={'http://localhost:8000' + formats.vertical_9x16}
                         download
-                        className="block text-center px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-xs font-semibold transition"
+                        className="block text-center px-4 py-2 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg text-xs font-semibold transition"
                       >
                         ⬇️ تحميل
                       </a>
@@ -277,22 +277,22 @@ export default function CampaignDetailPage() {
                   )}
                 </div>
 
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-xl p-4">
                   <div className="text-center mb-3">
                     <div className="text-sm font-bold">1:1 مربع</div>
-                    <div className="text-xs text-gray-400">Instagram Feed</div>
+                    <div className="text-xs text-[#8B8B8B]">Instagram Feed</div>
                   </div>
                   {formats.square_1x1 && (
                     <>
                       <video
                         controls
-                        className="w-full rounded-lg border border-white/10 mb-3"
+                        className="w-full rounded-lg border border-[rgba(212,165,116,0.12)] mb-3"
                         src={'http://localhost:8000' + formats.square_1x1}
                       />
                       <a
                         href={'http://localhost:8000' + formats.square_1x1}
                         download
-                        className="block text-center px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-xs font-semibold transition"
+                        className="block text-center px-4 py-2 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg text-xs font-semibold transition"
                       >
                         ⬇️ تحميل
                       </a>
@@ -300,22 +300,22 @@ export default function CampaignDetailPage() {
                   )}
                 </div>
 
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <div className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-xl p-4">
                   <div className="text-center mb-3">
                     <div className="text-sm font-bold">16:9 أفقي</div>
-                    <div className="text-xs text-gray-400">YouTube • Facebook</div>
+                    <div className="text-xs text-[#8B8B8B]">YouTube • Facebook</div>
                   </div>
                   {formats.landscape_16x9 && (
                     <>
                       <video
                         controls
-                        className="w-full rounded-lg border border-white/10 mb-3"
+                        className="w-full rounded-lg border border-[rgba(212,165,116,0.12)] mb-3"
                         src={'http://localhost:8000' + formats.landscape_16x9}
                       />
                       <a
                         href={'http://localhost:8000' + formats.landscape_16x9}
                         download
-                        className="block text-center px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-xs font-semibold transition"
+                        className="block text-center px-4 py-2 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg text-xs font-semibold transition"
                       >
                         ⬇️ تحميل
                       </a>
@@ -329,11 +329,11 @@ export default function CampaignDetailPage() {
 
         {isRunning && (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-6" />
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-[#D4A574] border-t-transparent mb-6" />
             <h2 className="text-2xl font-bold mb-3">المصنع يعمل الآن</h2>
-            <p className="text-gray-400 mb-8">يُحدَّث كل 10 ثوانٍ</p>
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto">
-              <div className="text-sm text-gray-400 mb-3">المرحلة الحالية</div>
+            <p className="text-[#8B8B8B] mb-8">يُحدَّث كل 10 ثوانٍ</p>
+            <div className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-8 max-w-2xl mx-auto">
+              <div className="text-sm text-[#8B8B8B] mb-3">المرحلة الحالية</div>
               <div className="text-xl font-bold">{campaign.stage || 'بدء الإنتاج...'}</div>
             </div>
           </div>
@@ -341,22 +341,22 @@ export default function CampaignDetailPage() {
 
         {isFailed && (
           <div className="text-center py-12">
-            <h2 className="text-2xl font-bold mb-4 text-red-400">فشلت الحملة</h2>
-            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-lg max-w-2xl mx-auto text-sm">
+            <h2 className="text-2xl font-bold mb-4 text-[#E05252]">فشلت الحملة</h2>
+            <div className="bg-[rgba(224,82,82,0.1)] border border-[rgba(224,82,82,0.3)] text-[#E05252] px-6 py-4 rounded-lg max-w-2xl mx-auto text-sm">
               {campaign.error || 'خطأ غير معروف'}
             </div>
           </div>
         )}
 
         {campaign.scenes && campaign.scenes.length > 0 && (
-          <div className="mt-12 bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="mt-12 bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-6">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">المشاهد ({campaign.scenes.length})</h3>
               {campaign.status === 'done' && (
                 <button
                   onClick={handleRebuild}
                   disabled={rebuilding}
-                  className="px-5 py-2 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 disabled:opacity-50 rounded-lg text-sm font-semibold transition"
+                  className="px-5 py-2 bg-[#D4A574] hover:opacity-90 disabled:opacity-50 rounded-lg text-sm font-semibold transition"
                 >
                   {rebuilding ? 'جاري إعادة البناء...' : '🔄 إعادة بناء الفيديو النهائي'}
                 </button>
@@ -369,7 +369,7 @@ export default function CampaignDetailPage() {
                 const hasImage = !!scene.image_url;
                 const hasVoice = !!scene.voice_url;
                 return (
-                  <div key={scene.number} className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                  <div key={scene.number} className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-xl overflow-hidden">
                     <div className="flex flex-col md:flex-row gap-4 p-4">
                       {/* Image Thumbnail */}
                       <div className="flex-shrink-0 w-full md:w-40">
@@ -377,10 +377,10 @@ export default function CampaignDetailPage() {
                           <img
                             src={'http://localhost:8000' + scene.image_url}
                             alt={'Scene ' + scene.number}
-                            className="w-full h-40 md:h-40 object-cover rounded-lg border border-white/10"
+                            className="w-full h-40 md:h-40 object-cover rounded-lg border border-[rgba(212,165,116,0.12)]"
                           />
                         ) : (
-                          <div className="w-full h-40 bg-white/5 rounded-lg border border-white/10 flex items-center justify-center text-gray-500 text-xs">
+                          <div className="w-full h-40 bg-[#1A1A1F] rounded-lg border border-[rgba(212,165,116,0.12)] flex items-center justify-center text-[#5A5A5A] text-xs">
                             لا توجد صورة
                           </div>
                         )}
@@ -390,12 +390,12 @@ export default function CampaignDetailPage() {
                       <div className="flex-1">
                         <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center text-lg font-bold">
+                            <div className="w-10 h-10 bg-[#D4A574] rounded-lg flex items-center justify-center text-lg font-bold">
                               {scene.number}
                             </div>
                             <div>
                               <div className="font-bold">مشهد {scene.number}</div>
-                              <div className="text-xs text-gray-400">
+                              <div className="text-xs text-[#8B8B8B]">
                                 {scene.duration}ث
                                 {hasMerged && ' • ✓ مكتمل'}
                                 {!hasMerged && hasVideo && ' • ⚠ بدون دمج'}
@@ -406,21 +406,21 @@ export default function CampaignDetailPage() {
                           <button
                             onClick={() => handleRegenerateScene(scene.number)}
                             disabled={regenLoading === scene.number}
-                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-50 rounded-lg text-xs font-semibold transition"
+                            className="px-3 py-1.5 bg-[#1A1A1F] hover:bg-[#202026] disabled:opacity-50 rounded-lg text-xs font-semibold transition"
                           >
                             {regenLoading === scene.number ? '⏳' : '🔄 إعادة التوليد'}
                           </button>
                         </div>
 
                         {scene.visual && (
-                          <p className="text-xs text-gray-400 mb-2">
-                            <span className="text-gray-500">بصري: </span>
+                          <p className="text-xs text-[#8B8B8B] mb-2">
+                            <span className="text-[#5A5A5A]">بصري: </span>
                             {scene.visual}
                           </p>
                         )}
                         {scene.voice_over && (
-                          <p className="text-xs text-gray-400 italic mb-3">
-                            <span className="text-gray-500 not-italic">صوت: </span>
+                          <p className="text-xs text-[#8B8B8B] italic mb-3">
+                            <span className="text-[#5A5A5A] not-italic">صوت: </span>
                             {scene.voice_over}
                           </p>
                         )}
@@ -429,31 +429,31 @@ export default function CampaignDetailPage() {
                         <div className="flex flex-wrap gap-2 mt-3">
                           {hasMerged && (
                             <details className="text-xs">
-                              <summary className="cursor-pointer px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-blue-500/30 inline-block">
+                              <summary className="cursor-pointer px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg border border-[#D4A574]/30 inline-block">
                                 🎬 عرض الفيديو المدموج
                               </summary>
                               <video
                                 controls
-                                className="mt-3 w-full max-w-md rounded-lg border border-white/10"
+                                className="mt-3 w-full max-w-md rounded-lg border border-[rgba(212,165,116,0.12)]"
                                 src={'http://localhost:8000' + scene.merged_url}
                               />
                             </details>
                           )}
                           {!hasMerged && hasVideo && (
                             <details className="text-xs">
-                              <summary className="cursor-pointer px-3 py-1.5 bg-yellow-500/20 hover:bg-yellow-500/30 rounded-lg border border-yellow-500/30 inline-block">
+                              <summary className="cursor-pointer px-3 py-1.5 bg-[rgba(212,165,116,0.1)] hover:bg-yellow-500/30 rounded-lg border border-yellow-500/30 inline-block">
                                 🎬 عرض الفيديو (بدون صوت)
                               </summary>
                               <video
                                 controls
-                                className="mt-3 w-full max-w-md rounded-lg border border-white/10"
+                                className="mt-3 w-full max-w-md rounded-lg border border-[rgba(212,165,116,0.12)]"
                                 src={'http://localhost:8000' + scene.video_url}
                               />
                             </details>
                           )}
                           {hasVoice && (
                             <details className="text-xs">
-                              <summary className="cursor-pointer px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg border border-purple-500/30 inline-block">
+                              <summary className="cursor-pointer px-3 py-1.5 bg-purple-500/20 hover:bg-purple-500/30 rounded-lg border border-[#D4A574]/30 inline-block">
                                 🎙️ سماع الصوت
                               </summary>
                               <audio
@@ -474,16 +474,16 @@ export default function CampaignDetailPage() {
         )}
 
         {campaign.assets && (
-          <div className="mt-12 bg-white/5 border border-white/10 rounded-2xl p-6">
+          <div className="mt-12 bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-6">
             <h3 className="text-lg font-bold mb-4">الأصول المُنتَجة</h3>
             <div className="space-y-2 text-sm">
               {campaign.assets.music_url && (
                 <div className="flex justify-between">
-                  <span className="text-gray-400">🎵 الموسيقى</span>
+                  <span className="text-[#8B8B8B]">🎵 الموسيقى</span>
                   <a
                     href={'http://localhost:8000' + campaign.assets.music_url}
                     target="_blank"
-                    className="text-blue-400 hover:underline"
+                    className="text-[#D4A574] hover:underline"
                   >
                     تحميل
                   </a>
@@ -491,11 +491,11 @@ export default function CampaignDetailPage() {
               )}
               {campaign.assets.captions_url && (
                 <div className="flex justify-between">
-                  <span className="text-gray-400">📝 النصوص (SRT)</span>
+                  <span className="text-[#8B8B8B]">📝 النصوص (SRT)</span>
                   <a
                     href={'http://localhost:8000' + campaign.assets.captions_url}
                     target="_blank"
-                    className="text-blue-400 hover:underline"
+                    className="text-[#D4A574] hover:underline"
                   >
                     تحميل
                   </a>
