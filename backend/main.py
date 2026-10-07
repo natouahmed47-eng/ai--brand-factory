@@ -1,6 +1,7 @@
 import os
 import uuid
 import threading
+import secrets
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.staticfiles import StaticFiles
@@ -1063,3 +1064,82 @@ def delete_product(
     db.delete(product)
     db.commit()
     return {"success": True}
+
+
+# ============ Password Reset ============
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@app.post("/auth/forgot-password")
+def forgot_password(
+    data: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.email == data.email).first()
+    
+    # Always return success (security best practice - don't reveal if email exists)
+    if not user:
+        return {"message": "If this email exists, a reset link has been sent"}
+    
+    # Generate token
+    token = secrets.token_urlsafe(32)
+    
+    # Store in Redis with 1-hour expiry
+    try:
+        redis_client.setex(
+            "password_reset:" + token,
+            3600,
+            user.id
+        )
+        print("[PASSWORD_RESET] Token generated for: " + user.email)
+        print("[PASSWORD_RESET] Token: " + token)
+    except Exception as e:
+        print("[PASSWORD_RESET_ERROR] " + str(e))
+        raise HTTPException(status_code=500, detail="Failed to generate reset token")
+    
+    return {
+        "message": "If this email exists, a reset link has been sent",
+        "token": token,
+        "note": "In production, this token would be sent via email",
+    }
+
+
+@app.post("/auth/reset-password")
+def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    
+    try:
+        user_id = redis_client.get("password_reset:" + data.token)
+        if not user_id:
+            raise HTTPException(status_code=400, detail="Invalid or expired token")
+        
+        if isinstance(user_id, bytes):
+            user_id = user_id.decode("utf-8")
+        
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user.password_hash = hash_password(data.new_password)
+        db.commit()
+        
+        # Delete token after use
+        redis_client.delete("password_reset:" + data.token)
+        
+        return {"message": "Password reset successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("[RESET_ERROR] " + str(e))
+        raise HTTPException(status_code=500, detail="Failed to reset password")

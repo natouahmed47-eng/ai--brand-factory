@@ -1,41 +1,41 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export default function LoginPage() {
-  const router = useRouter();
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [token, setToken] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setMessage('');
 
     try {
-      const res = await fetch('http://localhost:8000/auth/login', {
+      const res = await fetch('http://localhost:8000/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.detail || 'بيانات خاطئة');
+        setError(data.detail || 'حدث خطأ');
         setLoading(false);
         return;
       }
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      localStorage.setItem('workspace', JSON.stringify(data.workspace));
-
-      router.push('/dashboard');
+      setMessage('تم إرسال رابط إعادة التعيين إلى بريدك');
+      if (data.token) {
+        setToken(data.token);
+      }
+      setLoading(false);
     } catch {
       setError('خطأ في الاتصال بالخادم');
       setLoading(false);
@@ -43,13 +43,13 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center px-6">
+    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center px-6" dir="rtl">
       <div className="w-full max-w-md bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10">
         <h1 className="text-3xl font-bold text-white text-center mb-2">
-          مرحبًا بعودتك
+          نسيت كلمة المرور؟
         </h1>
         <p className="text-gray-400 text-center mb-8">
-          سجّل الدخول لمتابعة عملك
+          أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -67,28 +67,24 @@ export default function LoginPage() {
             />
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-2">
-  <label className="block text-sm text-gray-300">
-    كلمة المرور
-  </label>
-  <Link href="/forgot-password" className="text-xs text-blue-400 hover:underline">
-    نسيت كلمة المرور؟
-  </Link>
-</div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-400"
-              placeholder="••••••••"
-            />
-          </div>
-
           {error && (
             <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg text-sm">
               {error}
+            </div>
+          )}
+
+          {message && (
+            <div className="bg-green-500/20 border border-green-500/50 text-green-200 px-4 py-3 rounded-lg text-sm">
+              {message}
+            </div>
+          )}
+
+          {token && (
+            <div className="bg-blue-500/20 border border-blue-500/50 text-blue-100 px-4 py-3 rounded-lg text-xs break-all">
+              <p className="font-bold mb-1">رابط إعادة التعيين:</p>
+              <Link href={'/reset-password?token=' + token} className="text-blue-300 underline">
+                اضغط هنا لإعادة تعيين كلمة المرور
+              </Link>
             </div>
           )}
 
@@ -97,14 +93,14 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white font-semibold rounded-lg transition"
           >
-            {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
+            {loading ? 'جاري الإرسال...' : 'إرسال رابط الاستعادة'}
           </button>
         </form>
 
         <p className="text-center text-gray-400 mt-6 text-sm">
-          ليس لديك حساب؟{' '}
-          <Link href="/signup" className="text-blue-400 hover:underline">
-            أنشئ حسابًا
+          تذكرت كلمة المرور؟{' '}
+          <Link href="/login" className="text-blue-400 hover:underline">
+            تسجيل الدخول
           </Link>
         </p>
       </div>
