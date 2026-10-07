@@ -1,36 +1,44 @@
-﻿'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Sparkles, Plus, LogOut, Settings, User as UserIcon,
+  Layers, Zap, Film, ChevronLeft,
+} from "lucide-react";
+import { theme } from "../../lib/theme";
+
+type User = {
+  id: string;
+  email: string;
+  workspace_id: string;
+  is_admin?: boolean;
+};
 
 type Workspace = {
   id: string;
   name: string;
   plan: string;
-  credits?: number;
+  credits: number;
 };
 
-type User = {
+type Brand = {
   id: string;
-  email: string;
+  name: string;
+  logo_url?: string | null;
+  created_at: string;
 };
 
 type Campaign = {
   id: string;
   brand_id: string;
   status: string;
-  stage: string;
-  final_url: string | null;
+  stage?: string | null;
   created_at: string;
 };
 
-type Brand = {
-  id: string;
-  name: string;
-  logo_url: string | null;
-  created_at: string;
-};
+const API = "http://localhost:8000";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -41,212 +49,415 @@ export default function DashboardPage() {
   const [loadingBrands, setLoadingBrands] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
 
     if (!token) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
-    fetch('http://localhost:8000/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
+    fetch(API + "/auth/me", {
+      headers: { Authorization: "Bearer " + token },
     })
       .then((res) => {
         if (!res.ok) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          localStorage.removeItem('workspace');
-          router.push('/login');
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          localStorage.removeItem("workspace");
+          router.push("/login");
           return null;
         }
         return res.json();
       })
       .then((data) => {
-        if (data) {
-          setUser(data.user);
-          setWorkspace(data.workspace);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          localStorage.setItem('workspace', JSON.stringify(data.workspace));
-        }
+        if (!data) return;
+        setUser(data.user);
+        setWorkspace(data.workspace);
+
+        fetch(API + "/brands", {
+          headers: { Authorization: "Bearer " + token },
+        })
+          .then((r) => r.json())
+          .then((b) => {
+            setBrands(Array.isArray(b) ? b : b.items || []);
+            setLoadingBrands(false);
+          })
+          .catch(() => setLoadingBrands(false));
+
+        fetch(API + "/campaigns", {
+          headers: { Authorization: "Bearer " + token },
+        })
+          .then((r) => r.json())
+          .then((c) => setCampaigns(Array.isArray(c) ? c : c.items || []))
+          .catch(() => {});
       })
       .catch(() => {
-        router.push('/login');
+        router.push("/login");
       });
-
-    fetch('http://localhost:8000/brands', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setBrands(data);
-        setLoadingBrands(false);
-      })
-      .catch(() => setLoadingBrands(false));
-
-    fetch('http://localhost:8000/campaigns', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => res.json())
-      .then((data) => setCampaigns(data))
-      .catch(() => {});
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('workspace');
-    router.push('/');
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("workspace");
+    router.push("/login");
   };
 
-  if (!user) {
-    return (
-      <main className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <p className="text-white">جاري التحميل...</p>
-      </main>
-    );
-  }
+  const getBrandName = (id: string) => {
+    const b = brands.find((x) => x.id === id);
+    return b ? b.name : "براند محذوف";
+  };
+
+  const statusMeta = (status: string) => {
+    const s = status || "pending";
+    if (s === "completed" || s === "done" || s === "success")
+      return { text: "مكتملة", color: theme.success, bg: "rgba(107,191,122,0.1)" };
+    if (s === "failed" || s === "error")
+      return { text: "فاشلة", color: theme.danger, bg: "rgba(224,82,82,0.1)" };
+    if (s === "running" || s === "processing")
+      return { text: "جاري التنفيذ", color: theme.gold, bg: "rgba(212,165,116,0.12)" };
+    return { text: "قيد الانتظار", color: theme.muted, bg: "rgba(255,255,255,0.05)" };
+  };
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white">
-      <nav className="border-b border-white/10 px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold">AI Brand Factory</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-400">{user.email}</span>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-lg transition"
-          >
-            تسجيل الخروج
-          </button>
-        </div>
-      </nav>
+    <main
+      className="min-h-screen relative"
+      style={{ background: theme.bg, color: theme.text }}
+    >
+      <div
+        className="fixed top-0 right-0 w-[600px] h-[600px] rounded-full opacity-[0.06] blur-[140px] pointer-events-none"
+        style={{ background: theme.gold }}
+      />
 
-      <div className="container mx-auto px-6 py-12">
-        <h2 className="text-3xl font-bold mb-2">
-          مرحبًا بك في {workspace?.name || 'لوحتك'}
-        </h2>
-        <p className="text-gray-400 mb-12">
-          ابدأ بإنشاء براندك الأول، ودع الذكاء الاصطناعي يبني محتواك.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <p className="text-sm text-gray-400 mb-2">الخطة الحالية</p>
-            <p className="text-2xl font-bold capitalize">{workspace?.plan || 'Starter'}</p>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <p className="text-sm text-gray-400 mb-2">الحملات المتبقية</p>
-            <p className="text-2xl font-bold">{workspace?.credits ? Math.floor(workspace.credits / 100) : 1}</p>
-          </div>
-
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <p className="text-sm text-gray-400 mb-2">البراندات</p>
-            <p className="text-2xl font-bold">{brands.length}</p>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold">البراندات</h3>
-          <Link
-            href="/brands/new"
-            className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-semibold transition"
-          >
-            + إنشاء براند
+      <header
+        className="sticky top-0 z-40 backdrop-blur-xl"
+        style={{
+          background: "rgba(11,11,13,0.75)",
+          borderBottom: `1px solid ${theme.lineSoft}`,
+        }}
+      >
+        <div className="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <Sparkles
+              className="w-5 h-5 transition group-hover:scale-110"
+              style={{ color: theme.gold }}
+            />
+            <span className="text-base font-medium tracking-wide">
+              AI Brand Factory
+            </span>
           </Link>
+
+          <div className="flex items-center gap-3">
+            <Link
+              href="/settings"
+              className="p-2 rounded-full transition hover:bg-white/5"
+              title="الإعدادات"
+            >
+              <Settings className="w-4 h-4" style={{ color: theme.muted }} />
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-full transition hover:bg-white/5"
+              title="خروج"
+            >
+              <LogOut className="w-4 h-4" style={{ color: theme.muted }} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="relative max-w-[1200px] mx-auto px-6 py-12">
+        <div className="mb-12">
+          <div
+            className="text-[10px] tracking-[0.3em] mb-3"
+            style={{ color: theme.gold }}
+          >
+            لوحة التحكم
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-light mb-2">
+            مرحبًا في{" "}
+            <span style={{ color: theme.gold }}>
+              {workspace?.name || "..."}
+            </span>
+          </h1>
+          <p className="text-sm" style={{ color: theme.muted }}>
+            {user?.email || "..."}
+          </p>
         </div>
 
-        {loadingBrands ? (
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-gray-400">
-            جاري التحميل...
-          </div>
-        ) : brands.length === 0 ? (
-          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-2xl p-10 text-center">
-            <h4 className="text-2xl font-bold mb-3">أنشئ براندك الأول</h4>
-            <p className="text-gray-300 mb-6">
-              ارفع شعارك، وأخبرنا عن منتجك، ودع الذكاء الاصطناعي يبني عقل براندك.
-            </p>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
+          <KpiCard
+            icon={Zap}
+            label="Credits"
+            value={workspace ? Math.floor(workspace.credits / 100) : 0}
+          />
+          <KpiCard icon={Layers} label="البراندات" value={brands.length} />
+          <KpiCard icon={Film} label="الحملات" value={campaigns.length} />
+          <KpiCard
+            icon={Sparkles}
+            label="الخطة"
+            value={workspace?.plan || "Free"}
+            isText
+          />
+        </div>
+
+
+        <section className="mb-16">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-light">البراندات</h2>
             <Link
               href="/brands/new"
-              className="inline-block px-8 py-3 bg-blue-500 rounded-lg font-semibold hover:bg-blue-600 transition"
+              className="inline-flex items-center gap-2 text-sm font-medium px-5 py-2.5 rounded-full transition hover:opacity-90"
+              style={{ background: theme.gold, color: theme.bg }}
             >
-              ابدأ الآن
+              <Plus className="w-4 h-4" />
+              براند جديد
             </Link>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {brands.map((brand) => (
-              <Link
-                key={brand.id}
-                href={`/brands/${brand.id}`}
-                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-blue-500/50 transition cursor-pointer block"
-              >
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl mb-4 flex items-center justify-center text-2xl font-bold overflow-hidden">
-                  {brand.logo_url ? (
-                    <img
-                      src={`http://localhost:8000${brand.logo_url}`}
-                      alt={brand.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span>{brand.name.charAt(0)}</span>
-                  )}
-                </div>
-                <h4 className="text-xl font-bold mb-2">{brand.name}</h4>
-                <p className="text-sm text-gray-400">
-                  أُنشئ في {new Date(brand.created_at).toLocaleDateString('ar')}
-                </p>
-              </Link>
-            ))}
-          </div>
-        )}
 
-        {campaigns.length > 0 && (
-          <div className="mt-16">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-bold">حملاتي</h3>
-              <span className="text-sm text-gray-400">{campaigns.length} حملة</span>
+          {loadingBrands ? (
+            <div
+              className="rounded-2xl p-8 text-center text-sm"
+              style={{
+                background: theme.card,
+                border: `1px solid ${theme.lineSoft}`,
+                color: theme.muted,
+              }}
+            >
+              جارٍ التحميل...
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {campaigns.map((camp) => {
-                const brand = brands.find((b) => b.id === camp.brand_id);
-                const statusColor =
-                  camp.status === 'done'
-                    ? 'bg-green-500/20 border-green-500/30 text-green-300'
-                    : camp.status === 'failed'
-                    ? 'bg-red-500/20 border-red-500/30 text-red-300'
-                    : 'bg-blue-500/20 border-blue-500/30 text-blue-300';
-                const statusText =
-                  camp.status === 'done'
-                    ? 'جاهزة'
-                    : camp.status === 'failed'
-                    ? 'فشلت'
-                    : 'قيد الإنتاج';
+          ) : brands.length === 0 ? (
+            <div
+              className="rounded-2xl p-12 text-center"
+              style={{
+                background: theme.card,
+                border: `1px solid ${theme.line}`,
+              }}
+            >
+              <div
+                className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-5"
+                style={{
+                  background: "rgba(212,165,116,0.08)",
+                  border: `1px solid ${theme.line}`,
+                }}
+              >
+                <Layers className="w-6 h-6" style={{ color: theme.gold }} />
+              </div>
+              <h3 className="text-lg font-light mb-2">
+                ابدأ ببناء أول براند
+              </h3>
+              <p className="text-sm mb-6" style={{ color: theme.muted }}>
+                أنشئ براندك الأول — عقل رقمي سيُنتج لك محتوى لا نهائي.
+              </p>
+              <Link
+                href="/brands/new"
+                className="inline-flex items-center gap-2 text-sm font-medium px-6 py-3 rounded-full transition hover:opacity-90"
+                style={{ background: theme.gold, color: theme.bg }}
+              >
+                <Plus className="w-4 h-4" />
+                إنشاء براند
+              </Link>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {brands.map((b) => (
+                <Link
+                  key={b.id}
+                  href={"/brands/" + b.id}
+                  className="group rounded-2xl p-6 transition hover:-translate-y-0.5"
+                  style={{
+                    background: theme.card,
+                    border: `1px solid ${theme.lineSoft}`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = theme.gold;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = theme.lineSoft;
+                  }}
+                >
+                  <div className="flex items-center gap-4 mb-5">
+                    {b.logo_url ? (
+                      <img
+                        src={b.logo_url}
+                        alt={b.name}
+                        className="w-12 h-12 rounded-xl object-cover"
+                        style={{ border: `1px solid ${theme.lineSoft}` }}
+                      />
+                    ) : (
+                      <div
+                        className="w-12 h-12 rounded-xl flex items-center justify-center"
+                        style={{
+                          background: "rgba(212,165,116,0.08)",
+                          border: `1px solid ${theme.line}`,
+                        }}
+                      >
+                        <Sparkles
+                          className="w-5 h-5"
+                          style={{ color: theme.gold }}
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-base font-normal truncate">
+                        {b.name}
+                      </div>
+                      <div
+                        className="text-xs mt-0.5"
+                        style={{ color: theme.muted }}
+                      >
+                        {new Date(b.created_at).toLocaleDateString("ar-EG")}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="flex items-center justify-between text-xs"
+                    style={{ color: theme.muted }}
+                  >
+                    <span>عرض التفاصيل</span>
+                    <ChevronLeft
+                      className="w-3.5 h-3.5 transition group-hover:-translate-x-1"
+                      style={{ color: theme.gold }}
+                    />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-light">حملاتي</h2>
+            <span className="text-xs" style={{ color: theme.muted }}>
+              {campaigns.length} حملة
+            </span>
+          </div>
+
+          {campaigns.length === 0 ? (
+            <div
+              className="rounded-2xl p-12 text-center"
+              style={{
+                background: theme.card,
+                border: `1px solid ${theme.lineSoft}`,
+              }}
+            >
+              <div
+                className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-5"
+                style={{
+                  background: "rgba(212,165,116,0.08)",
+                  border: `1px solid ${theme.line}`,
+                }}
+              >
+                <Film className="w-6 h-6" style={{ color: theme.gold }} />
+              </div>
+              <h3 className="text-lg font-light mb-2">لا توجد حملات بعد</h3>
+              <p className="text-sm" style={{ color: theme.muted }}>
+                أنشئ براندًا، ثم ابدأ أول حملة إعلانية.
+              </p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {campaigns.map((c) => {
+                const meta = statusMeta(c.status);
                 return (
                   <Link
-                    key={camp.id}
-                    href={'/campaigns/' + camp.id}
-                    className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-blue-500/50 hover:bg-white/10 transition cursor-pointer block"
+                    key={c.id}
+                    href={"/campaigns/" + c.id}
+                    className="group rounded-2xl p-6 transition hover:-translate-y-0.5"
+                    style={{
+                      background: theme.card,
+                      border: `1px solid ${theme.lineSoft}`,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = theme.gold;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = theme.lineSoft;
+                    }}
                   >
-                    <div className="flex justify-between items-start mb-3">
-                      <h4 className="text-lg font-bold">{brand?.name || 'براند'}</h4>
-                      <span className={'text-xs px-3 py-1 rounded-full border ' + statusColor}>
-                        {statusText}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <h3 className="text-base font-normal truncate flex-1">
+                        {getBrandName(c.brand_id)}
+                      </h3>
+                      <span
+                        className="text-[10px] tracking-widest px-2.5 py-1 rounded-full whitespace-nowrap"
+                        style={{
+                          color: meta.color,
+                          background: meta.bg,
+                          border: `1px solid ${meta.color}33`,
+                        }}
+                      >
+                        {meta.text}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-400 mb-3">
-                      {new Date(camp.created_at).toLocaleDateString('ar-EG')}
-                    </p>
-                    {camp.status === 'running' && (
-                      <p className="text-xs text-gray-500 truncate">{camp.stage}</p>
+                    <div
+                      className="text-xs mb-2"
+                      style={{ color: theme.muted }}
+                    >
+                      {new Date(c.created_at).toLocaleDateString("ar-EG")}
+                    </div>
+                    {c.status === "running" && c.stage && (
+                      <div
+                        className="text-xs truncate"
+                        style={{ color: theme.gold }}
+                      >
+                        {c.stage}
+                      </div>
                     )}
                   </Link>
                 );
               })}
             </div>
-          </div>
-        )}
+          )}
+        </section>
       </div>
     </main>
+  );
+}
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  isText = false,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  label: string;
+  value: number | string;
+  isText?: boolean;
+}) {
+  return (
+    <div
+      className="rounded-2xl p-6"
+      style={{
+        background: theme.card,
+        border: `1px solid ${theme.lineSoft}`,
+      }}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <span
+          className="text-[10px] tracking-[0.2em] uppercase"
+          style={{ color: theme.muted }}
+        >
+          {label}
+        </span>
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{
+            background: "rgba(212,165,116,0.08)",
+            border: `1px solid ${theme.line}`,
+          }}
+        >
+          <Icon className="w-4 h-4" style={{ color: theme.gold }} />
+        </div>
+      </div>
+      <div
+        className={isText ? "text-xl font-light" : "text-3xl font-light"}
+        style={{ color: theme.text }}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
