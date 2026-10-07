@@ -206,16 +206,16 @@ export default function CreateCampaignPage() {
 
   if (!mounted || stage === 'loading') {
     return (
-      <main className="min-h-screen bg-gray-900 flex items-center justify-center" dir="rtl">
+      <main className="min-h-screen bg-[#0B0B0D] flex items-center justify-center" dir="rtl">
         <p className="text-white">جاري التحميل...</p>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white" dir="rtl">
-      <nav className="border-b border-white/10 px-6 py-4">
-        <Link href={'/brands/' + brandId} className="text-blue-400 hover:underline text-sm">
+    <main className="min-h-screen bg-[#0B0B0D] text-[#F5F5F0]" dir="rtl">
+      <nav className="border-b border-[rgba(212,165,116,0.12)] px-6 py-4">
+        <Link href={'/brands/' + brandId} className="text-[#D4A574] hover:underline text-sm">
           ← العودة إلى البراند
         </Link>
       </nav>
@@ -225,20 +225,20 @@ export default function CreateCampaignPage() {
         {stage === 'select-product' && (
           <div className="py-8">
             <h1 className="text-4xl font-bold mb-4 text-center">أنشئ حملتك</h1>
-            <p className="text-gray-400 mb-10 text-lg text-center">اختر المنتج الذي تريد الإعلان عنه</p>
+            <p className="text-[#8B8B8B] mb-10 text-lg text-center">اختر المنتج الذي تريد الإعلان عنه</p>
 
             {error && (
-              <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-6 max-w-md mx-auto text-center">
+              <div className="bg-[rgba(224,82,82,0.1)] border border-[rgba(224,82,82,0.3)] text-[#E05252] px-4 py-3 rounded-lg mb-6 max-w-md mx-auto text-center">
                 {error}
               </div>
             )}
 
             {products.length === 0 ? (
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center max-w-2xl mx-auto">
-                <p className="text-gray-400 mb-4">لا توجد منتجات لهذا البراند</p>
+              <div className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-12 text-center max-w-2xl mx-auto">
+                <p className="text-[#8B8B8B] mb-4">لا توجد منتجات لهذا البراند</p>
                 <Link
                   href={'/brands/' + brandId + '/products'}
-                  className="inline-block px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-semibold"
+                  className="inline-block px-6 py-3 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg font-semibold"
                 >
                   + إضافة منتج
                 </Link>
@@ -256,10 +256,10 @@ export default function CreateCampaignPage() {
                         className={
                           'rounded-2xl p-4 transition border ' +
                           (isSelected
-                            ? 'bg-blue-500/20 border-blue-500 ring-2 ring-blue-500'
+                            ? 'bg-blue-500/20 border-[#D4A574] ring-2 ring-blue-500'
                             : hasImages
-                            ? 'bg-white/5 border-white/10 hover:border-blue-500/50 cursor-pointer'
-                            : 'bg-white/5 border-white/10 opacity-50 cursor-not-allowed')
+                            ? 'bg-[#1A1A1F] border-[rgba(212,165,116,0.12)] hover:border-[#D4A574]/50 cursor-pointer'
+                            : 'bg-[#1A1A1F] border-[rgba(212,165,116,0.12)] opacity-50 cursor-not-allowed')
                         }
                       >
                         <div className="grid grid-cols-3 gap-1 mb-3">
@@ -274,13 +274,13 @@ export default function CreateCampaignPage() {
                         </div>
                         <h3 className="font-bold mb-1">{product.name}</h3>
                         {product.description && (
-                          <p className="text-xs text-gray-400 mb-2 line-clamp-2">{product.description}</p>
+                          <p className="text-xs text-[#8B8B8B] mb-2 line-clamp-2">{product.description}</p>
                         )}
                         {!hasImages && (
                           <p className="text-xs text-yellow-400">⚠ يحتاج 3 صور</p>
                         )}
                         {isSelected && (
-                          <p className="text-xs text-blue-300 mt-2 font-bold">✓ مختار</p>
+                          <p className="text-xs text-[#D4A574] mt-2 font-bold">✓ مختار</p>
                         )}
                       </div>
                     );
@@ -291,7 +291,7 @@ export default function CreateCampaignPage() {
                   <button
                     onClick={handleGenerateIdeas}
                     disabled={!selectedProduct}
-                    className="px-10 py-5 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl font-bold text-xl transition"
+                    className="px-10 py-5 bg-[#D4A574] hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl font-bold text-xl transition"
                   >
                     {selectedProduct ? 'اقترح 5 أفكار لـ ' + selectedProduct.name : 'اختر منتجًا للبدء'}
                   </button>
@@ -303,31 +303,31 @@ export default function CreateCampaignPage() {
 
         {stage === 'thinking' && (
           <div className="text-center py-32">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-6" />
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-[#D4A574] border-t-transparent mb-6" />
             <h2 className="text-2xl font-bold mb-3">AI Creative Director يفكر...</h2>
-            <p className="text-gray-400">يقرأ عقل براندك والمنتج، ويبتكر أفكارًا</p>
+            <p className="text-[#8B8B8B]">يقرأ عقل براندك والمنتج، ويبتكر أفكارًا</p>
           </div>
         )}
 
         {stage === 'ideas' && (
           <div>
             <h1 className="text-3xl font-bold mb-2">اختر فكرتك الإبداعية</h1>
-            <p className="text-gray-400 mb-8">5 أفكار مبنية على "{selectedProduct?.name}". اضغط على إحداها.</p>
+            <p className="text-[#8B8B8B] mb-8">5 أفكار مبنية على "{selectedProduct?.name}". اضغط على إحداها.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {ideas.map((idea, i) => (
                 <div
                   key={i}
                   onClick={() => handleSelectIdea(idea)}
-                  className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-blue-500/50 hover:bg-white/10 transition cursor-pointer"
+                  className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-6 hover:border-[#D4A574]/50 hover:bg-[#1A1A1F] transition cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="text-xl font-bold">{idea.title}</h3>
-                    <span className="text-xs px-3 py-1 bg-blue-500/20 rounded-full border border-blue-500/30">
+                    <span className="text-xs px-3 py-1 bg-blue-500/20 rounded-full border border-[#D4A574]/30">
                       {idea.content_type}
                     </span>
                   </div>
                   <p className="text-gray-300 mb-4 text-sm leading-relaxed">{idea.description}</p>
-                  <div className="flex gap-3 text-xs text-gray-400">
+                  <div className="flex gap-3 text-xs text-[#8B8B8B]">
                     <span>المدة: {idea.duration}ث</span>
                     <span>•</span>
                     <span>النبرة: {idea.tone}</span>
@@ -338,13 +338,13 @@ export default function CreateCampaignPage() {
             <div className="text-center mt-10 flex gap-4 justify-center">
               <button
                 onClick={() => setStage('select-product')}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition"
+                className="px-6 py-3 bg-[#1A1A1F] hover:bg-[#202026] rounded-lg font-semibold transition"
               >
                 ← تغيير المنتج
               </button>
               <button
                 onClick={handleGenerateIdeas}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition"
+                className="px-6 py-3 bg-[#1A1A1F] hover:bg-[#202026] rounded-lg font-semibold transition"
               >
                 ولّد 5 أفكار أخرى
               </button>
@@ -361,18 +361,18 @@ export default function CreateCampaignPage() {
 
         {stage === 'producing' && campaign && (
           <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mb-6" />
+            <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-[#D4A574] border-t-transparent mb-6" />
             <h1 className="text-3xl font-bold mb-4">المصنع يعمل الآن</h1>
-            <p className="text-gray-400 mb-10">إنتاج الفيديو يستغرق 10-15 دقيقة</p>
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-8 max-w-2xl mx-auto mb-6">
-              <div className="text-sm text-gray-400 mb-3">المرحلة الحالية</div>
+            <p className="text-[#8B8B8B] mb-10">إنتاج الفيديو يستغرق 10-15 دقيقة</p>
+            <div className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-8 max-w-2xl mx-auto mb-6">
+              <div className="text-sm text-[#8B8B8B] mb-3">المرحلة الحالية</div>
               <div className="text-xl font-bold mb-4">{stageLabel(campaign.stage)}</div>
-              <div className="flex justify-between text-sm text-gray-400">
+              <div className="flex justify-between text-sm text-[#8B8B8B]">
                 <span>الوقت المنقضي: {formatTime(elapsed)}</span>
                 <span>متوسط: ~13 دقيقة</span>
               </div>
             </div>
-            <Link href="/dashboard" className="text-blue-400 hover:underline text-sm">
+            <Link href="/dashboard" className="text-[#D4A574] hover:underline text-sm">
               يمكنك متابعة العمل من اللوحة
             </Link>
           </div>
@@ -381,10 +381,10 @@ export default function CreateCampaignPage() {
         {stage === 'done' && campaign && (
           <div className="text-center py-12">
             <h1 className="text-4xl font-bold mb-4">🎉 إعلانك جاهز!</h1>
-            <p className="text-gray-400 mb-10">اضغط للتشغيل</p>
+            <p className="text-[#8B8B8B] mb-10">اضغط للتشغيل</p>
             <video
               controls
-              className="w-full max-w-md mx-auto rounded-2xl border border-white/10 shadow-2xl mb-8"
+              className="w-full max-w-md mx-auto rounded-2xl border border-[rgba(212,165,116,0.12)] shadow-2xl mb-8"
               src={'http://localhost:8000' + campaign.final_url}
             />
             <div className="flex gap-4 justify-center flex-wrap">
@@ -404,13 +404,13 @@ export default function CreateCampaignPage() {
                     window.URL.revokeObjectURL(blobUrl);
                   } catch (e) { alert('فشل التحميل'); }
                 }}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 rounded-lg font-semibold transition"
+                className="px-6 py-3 bg-[#D4A574] hover:opacity-90 rounded-lg font-semibold transition"
               >
                 ⬇️ تحميل الفيديو
               </button>
               <Link
                 href={'/campaigns/' + campaign.id}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition"
+                className="px-6 py-3 bg-[#1A1A1F] hover:bg-[#202026] rounded-lg font-semibold transition"
               >
                 عرض التفاصيل
               </Link>
@@ -422,7 +422,7 @@ export default function CreateCampaignPage() {
                   setElapsed(0);
                   setSelectedIdea(null);
                 }}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition"
+                className="px-6 py-3 bg-[#1A1A1F] hover:bg-[#202026] rounded-lg font-semibold transition"
               >
                 ✨ حملة جديدة
               </button>
@@ -433,7 +433,7 @@ export default function CreateCampaignPage() {
         {stage === 'failed' && campaign && (
           <div className="text-center py-20">
             <h1 className="text-3xl font-bold mb-4 text-red-400">فشلت الحملة</h1>
-            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-6 py-4 rounded-lg mb-8 max-w-2xl mx-auto text-sm">
+            <div className="bg-[rgba(224,82,82,0.1)] border border-[rgba(224,82,82,0.3)] text-[#E05252] px-6 py-4 rounded-lg mb-8 max-w-2xl mx-auto text-sm">
               {campaign.error || 'خطأ غير معروف'}
             </div>
             <button
@@ -442,7 +442,7 @@ export default function CreateCampaignPage() {
                 setCampaign(null);
                 setElapsed(0);
               }}
-              className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition"
+              className="px-6 py-3 bg-[#1A1A1F] hover:bg-[#202026] rounded-lg font-semibold transition"
             >
               ← العودة
             </button>
