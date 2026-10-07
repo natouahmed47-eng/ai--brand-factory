@@ -388,13 +388,26 @@ export default function CreateCampaignPage() {
               src={'http://localhost:8000' + campaign.final_url}
             />
             <div className="flex gap-4 justify-center flex-wrap">
-              <a
-                href={'http://localhost:8000' + campaign.final_url}
-                download
+              <button
+                onClick={async () => {
+                  try {
+                    const url = 'http://localhost:8000' + campaign.final_url;
+                    const res = await fetch(url);
+                    const blob = await res.blob();
+                    const blobUrl = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = blobUrl;
+                    link.download = 'campaign.mp4';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(blobUrl);
+                  } catch (e) { alert('فشل التحميل'); }
+                }}
                 className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 rounded-lg font-semibold transition"
               >
                 ⬇️ تحميل الفيديو
-              </a>
+              </button>
               <Link
                 href={'/campaigns/' + campaign.id}
                 className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-lg font-semibold transition"

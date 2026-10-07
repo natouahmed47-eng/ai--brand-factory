@@ -747,7 +747,7 @@ def merge_scene(video_path, voice_path, output_name=None):
             "-i", video_abs,
             "-i", voice_abs,
             "-c:v", "copy",
-            "-c:a", "aac",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
             "-shortest",
             "-map", "0:v:0",
             "-map", "1:a:0",
@@ -796,11 +796,11 @@ def merge_with_music(video_path, voice_path, music_path, output_name=None):
             "-i", voice_abs,
             "-i", music_abs,
             "-filter_complex",
-            "[1:a]volume=1.0[voice];[2:a]volume=0.2[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+            "[1:a]volume=2.0[voice];[2:a]volume=0.4[music];[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
             "-map", "0:v:0",
             "-map", "[aout]",
             "-c:v", "copy",
-            "-c:a", "aac",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
             "-shortest",
             str(output_path),
         ]
@@ -852,7 +852,7 @@ def add_captions_to_video(video_path, srt_path, output_name=None):
             "-y",
             "-i", video_abs,
             "-vf", "subtitles=" + srt_local_name + ":force_style='" + style + "'",
-            "-c:a", "copy",
+            "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-ac", "2",
             output_name,
         ]
 
@@ -905,11 +905,11 @@ def add_music_to_video(video_path, music_path, output_name=None):
             "-i", video_abs,
             "-i", music_abs,
             "-filter_complex",
-            "[1:a]volume=0.2[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+            "[1:a]volume=0.4[music];[0:a][music]amix=inputs=2:duration=first:dropout_transition=2[aout]",
             "-map", "0:v:0",
             "-map", "[aout]",
             "-c:v", "copy",
-            "-c:a", "aac",
+            "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
             "-shortest",
             str(output_path),
         ]
@@ -1144,7 +1144,7 @@ def generate_video_formats(input_video_path, base_name=None):
                 ffmpeg_exe, "-y",
                 "-i", input_abs,
                 "-vf", vf,
-                "-c:a", "copy",
+                "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-ac", "2",
                 "-preset", "fast",
                 str(output_path),
             ]
@@ -1200,7 +1200,7 @@ def generate_scene_video_wan(visual_description, duration=5, brand_colors=None, 
         rsp = VideoSynthesis.async_call(
             model="wan2.2-t2v-plus",
             prompt=prompt,
-            size=size,
+            size="1080*1920",
         )
 
         if rsp.status_code != 200:
@@ -1574,7 +1574,7 @@ def generate_scene_video_dashscope(visual_description, duration=5, brand_colors=
         rsp = VideoSynthesis.async_call(
             model="wan2.2-t2v-plus",
             prompt=prompt,
-            size=size,
+            size="1080*1920",
         )
 
         if rsp.status_code != 200:
@@ -1673,6 +1673,7 @@ def generate_scene_video_i2v(image_path, visual_description, duration=5, brand_c
             model="wan2.2-i2v-plus",
             prompt=prompt,
             img_url=img_url,
+            size="1080*1920",
         )
 
         if rsp.status_code != 200:
