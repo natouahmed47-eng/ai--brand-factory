@@ -51,6 +51,7 @@ class User(Base):
     workspace_id: Mapped[str] = mapped_column(String, ForeignKey("workspaces.id"), nullable=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String, nullable=True)
+    is_admin: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -113,6 +114,7 @@ Base.metadata.create_all(bind=engine)
 # Migration: إضافة عمود colors إذا لم يكن موجودًا
 try:
     with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE"))
         conn.execute(text("ALTER TABLE brands ADD COLUMN IF NOT EXISTS colors JSON"))
         conn.execute(text("ALTER TABLE brands ADD COLUMN IF NOT EXISTS personality JSON"))
         conn.execute(text("ALTER TABLE brands ADD COLUMN IF NOT EXISTS audience JSON"))
@@ -1143,3 +1145,103 @@ def reset_password(
     except Exception as e:
         print("[RESET_ERROR] " + str(e))
         raise HTTPException(status_code=500, detail="Failed to reset password")
+
+# ============ Admin Dependency ============
+def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+# ============ Admin Endpoints ============
+@app.get("/admin/stats")
+def admin_stats(
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime as dt
+    total_users = db.query(User).count()
+    total_workspaces = db.query(Workspace).count()
+    total_brands = db.query(Brand).count()
+    total_campaigns = db.query(Campaign).count()
+    done_campaigns = db.query(Campaign).filter(Campaign.status == "done").count()
+    failed_campaigns = db.query(Campaign).filter(Campaign.status == "failed").count()
+    running_campaigns = db.query(Campaign).filter(Campaign.status == "running").count()
+    today = dt.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_campaigns = db.query(Campaign).filter(Campaign.created_at >= today).count()
+    success_rate = round((done_campaigns / total_campaigns) * 100, 1) if total_campaigns > 0 else 0
+    return {
+        "users": total_users,
+        "workspaces": total_workspaces,
+        "brands": total_brands,
+        "campaigns": {
+            "total": total_campaigns,
+            "done": done_campaigns,
+            "failed": failed_campaigns,
+            "running": running_campaigns,
+            "today": today_campaigns,
+        },
+        "success_rate": success_rate,
+    }
+
+
+@app.get("/admin/users")
+def admin_users(
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+):
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    result = []
+    for u in users:
+        workspace = db.query(Workspace).filter(Workspace.id == u.workspace_id).first()
+        brands_count = db.query(Brand).filter(Brand.workspace_id == u.workspace_id).count()
+        campaigns_count = db.query(Campaign).filter(Campaign.workspace_id == u.workspace_id).count()
+        result.append({
+            "id": u.id,
+            "email": u.email,
+            "is_admin": u.is_admin,
+            "created_at": u.created_at.isoformat(),
+            "workspace": {
+                "id": workspace.id,
+                "name": workspace.name,
+                "plan": workspace.plan,
+                "credits": workspace.credits,
+            } if workspace else None,
+            "brands_count": brands_count,
+            "campaigns_count": campaigns_count,
+        })
+    return result
+
+
+@app.get("/admin/campaigns")
+def admin_campaigns(
+    admin: User = Depends(get_admin_user),
+    db: Session = Depends(get_db),
+    limit: int = 50,
+):
+    campaigns = db.query(Campaign).order_by(Campaign.created_at.desc()).limit(limit).all()
+    result = []
+    for camp in campaigns:
+        workspace = db.query(Workspace).filter(Workspace.id == camp.workspace_id).first()
+        brand = db.query(Brand).filter(Brand.id == camp.brand_id).first()
+        result.append({
+            "id": camp.id,
+            "status": camp.status,
+            "stage": camp.stage,
+            "created_at": camp.created_at.isoformat(),
+            "final_url": camp.final_url,
+            "workspace_name": workspace.name if workspace else "N/A",
+            "brand_name": brand.name if brand else "N/A",
+            "error": camp.error,
+        })
+    return result
+
+
+@app.get("/admin/me")
+def admin_me(admin: User = Depends(get_admin_user)):
+    return {
+        "id": admin.id,
+        "email": admin.email,
+        "is_admin": True,
+    }
+
