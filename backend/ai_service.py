@@ -45,7 +45,7 @@ def generate_creative_ideas(brand, product=None):
 
 
 
-def generate_script(brand, idea):
+def generate_script(brand, idea, product=None):
     """يولّد سكريبت مشاهد من فكرة مختارة"""
 
     duration = idea.get("duration", 15)
@@ -54,9 +54,20 @@ def generate_script(brand, idea):
     personality = brand.get("personality") or {}
     audience = brand.get("audience") or {}
 
+    product_name = (product or {}).get("name", "")
+    product_desc = (product or {}).get("description", "")
+    product_price = (product or {}).get("price", "")
+
     parts = []
     parts.append("You are a professional scriptwriter for video ads.")
     parts.append("")
+    parts.append("=== PRODUCT (MOST IMPORTANT) ===")
+    parts.append("Product Name: " + str(product_name))
+    parts.append("Product Description: " + str(product_desc))
+    if product_price:
+        parts.append("Price: " + str(product_price))
+    parts.append("")
+    parts.append("=== CREATIVE IDEA ===")
     parts.append("Idea: " + str(idea.get("title", "")) + " - " + str(idea.get("description", "")))
     parts.append("Content type: " + str(idea.get("content_type", "")))
     parts.append("Tone: " + str(idea.get("tone", "")))
@@ -938,7 +949,7 @@ def full_production_pipeline(brand_data, idea, product=None, max_scenes=None, pr
     try:
         # Stage 1: Script
         report("script", "running")
-        scenes_text = generate_script(brand_data, idea)
+        scenes_text = generate_script(brand_data, idea, product=product)
         if not scenes_text:
             result["errors"].append("Script generation failed")
             report("script", "failed")
@@ -971,10 +982,12 @@ def full_production_pipeline(brand_data, idea, product=None, max_scenes=None, pr
             report("image", "running", "scene " + str(i))
             scene_visual = scene.get("visual", "")
             if product:
-                product_context = product.get("name", "")
-                if product.get("description"):
-                    product_context += " - " + str(product.get("description"))
-                scene_visual = product_context + ". " + scene_visual
+                pname = product.get("name", "")
+                pdesc = product.get("description", "")
+                product_context = pname
+                if pdesc:
+                    product_context = "SHOWING PRODUCT: " + pname + " | Description: " + pdesc[:500]
+                scene_visual = product_context + " | Scene: " + scene_visual
 
             img = generate_scene_image_agnes(
                 visual_description=scene_visual,
@@ -988,18 +1001,30 @@ def full_production_pipeline(brand_data, idea, product=None, max_scenes=None, pr
             report("video", "running", "scene " + str(i))
             
             product_images = (product or {}).get("images") or []
+            vid = None
+            
             if product_images and len(product_images) > 0:
-                # Use first image for i2v
+                # Try i2v first
                 img_path = product_images[i % len(product_images)]
-                print("[PIPELINE] Using i2v with product image: " + str(img_path))
-                vid = generate_scene_video_i2v(
-                    image_path=img_path,
-                    visual_description=scene_visual,
-                    duration=scene.get("duration", 3),
-                    brand_colors=brand_colors,
-                    aspect_ratio="9:16",
-                )
-            else:
+                print("[PIPELINE] Preparing image for i2v: " + str(img_path))
+                prepared_img = prepare_image_for_i2v("." + img_path.lstrip("/"), aspect_ratio="9:16")
+                if prepared_img:
+                    print("[PIPELINE] Trying i2v with prepared image: " + str(prepared_img))
+                    vid = generate_scene_video_i2v(
+                        image_path=prepared_img,
+                        visual_description=scene_visual,
+                        duration=scene.get("duration", 3),
+                        brand_colors=brand_colors,
+                        aspect_ratio="9:16",
+                    )
+                    if vid:
+                        print("[PIPELINE] i2v succeeded")
+                    else:
+                        print("[PIPELINE] i2v failed, falling back to t2v")
+                else:
+                    print("[PIPELINE] Image preparation failed")
+            
+            if not vid:
                 # Fallback to t2v
                 vid = generate_scene_video_dashscope(
                     visual_description=scene_visual,
@@ -1042,15 +1067,9 @@ def full_production_pipeline(brand_data, idea, product=None, max_scenes=None, pr
             return result
         report("combine", "done")
 
-        # Stage 4: Music
+        # Stage 4: Music (from local library)
         report("music", "running")
-        total_duration = sum(s.get("duration", 3) for s in scenes_text)
-        mood = "cinematic luxury ambient"
-        personality = brand_data.get("personality") or {}
-        if personality.get("emotional_territory"):
-            mood = "cinematic " + str(personality.get("emotional_territory"))
-        music_prompt = "Cinematic luxury brand music, " + mood + ", elegant, warm, professional advertising soundtrack"
-        music_url = generate_scene_music(music_prompt, duration=min(int(total_duration), 120))
+        music_url = select_music_from_library(brand_data, product=product)
         report("music", "done" if music_url else "failed")
 
         # Stage 5: Add music to combined
@@ -1654,7 +1673,6 @@ def generate_scene_video_i2v(image_path, visual_description, duration=5, brand_c
             model="wan2.2-i2v-plus",
             prompt=prompt,
             img_url=img_url,
-            resolution="720P",
         )
 
         if rsp.status_code != 200:
@@ -1696,4 +1714,113 @@ def generate_scene_video_i2v(image_path, visual_description, duration=5, brand_c
     except Exception as e:
         print("[I2V_ERROR] " + str(e))
         return None
+
+def prepare_image_for_i2v(image_path, aspect_ratio="9:16"):
+    """يُحضّر صورة المنتج بأبعاد 9:16 مع خلفية ضبابية احترافية"""
+    from PIL import Image, ImageFilter
+    from pathlib import Path
+    import uuid
+
+    try:
+        if aspect_ratio == "9:16":
+            target_w, target_h = 1080, 1920
+        elif aspect_ratio == "16:9":
+            target_w, target_h = 1920, 1080
+        else:
+            target_w, target_h = 1080, 1920
+
+        img = Image.open(image_path).convert("RGB")
+        orig_w, orig_h = img.size
+
+        # STEP 1: Create blurred background that fills the target
+        # Scale image to FILL target (cover), then blur
+        scale_fill = max(target_w / orig_w, target_h / orig_h)
+        fill_w = int(orig_w * scale_fill)
+        fill_h = int(orig_h * scale_fill)
+        bg = img.resize((fill_w, fill_h), Image.LANCZOS)
+        # Crop center
+        left = (fill_w - target_w) // 2
+        top = (fill_h - target_h) // 2
+        bg = bg.crop((left, top, left + target_w, top + target_h))
+        # Apply heavy blur + darken
+        bg = bg.filter(ImageFilter.GaussianBlur(radius=50))
+        # Darken by 30% to make product stand out
+        from PIL import ImageEnhance
+        enhancer = ImageEnhance.Brightness(bg)
+        bg = enhancer.enhance(0.5)
+
+        # STEP 2: Place product image in center (fits inside)
+        scale_fit = min(target_w / orig_w, target_h / orig_h)
+        new_w = int(orig_w * scale_fit)
+        new_h = int(orig_h * scale_fit)
+        product = img.resize((new_w, new_h), Image.LANCZOS)
+
+        offset_x = (target_w - new_w) // 2
+        offset_y = (target_h - new_h) // 2
+        bg.paste(product, (offset_x, offset_y))
+
+        # STEP 3: Save
+        folder = Path("uploads/products")
+        folder.mkdir(parents=True, exist_ok=True)
+        temp_name = "i2v_" + str(uuid.uuid4()) + ".png"
+        temp_path = folder / temp_name
+        bg.save(temp_path, "PNG")
+
+        return "/uploads/products/" + temp_name
+
+    except Exception as e:
+        print("[PREPARE_IMG_ERROR] " + str(e))
+        return None
+
+def select_music_from_library(brand_data, product=None):
+    """يختار مقطوعة موسيقية من المكتبة المحلية حسب Brand Brain"""
+    import os
+    import random
+    from pathlib import Path
+
+    base = Path("uploads/music_library")
+
+    # Map emotional_territory to mood category
+    personality = brand_data.get("personality") or {}
+    emotion = str(personality.get("emotional_territory", "")).lower()
+    tone = str(personality.get("tone", [])).lower()
+
+    # Default mapping
+    mood = "cinematic"  # default
+
+    # Smart matching
+    if any(w in emotion or w in tone for w in ["فخام", "فخم", "luxury", "فاخر", "سينمائي", "cinematic"]):
+        mood = "cinematic"
+    elif any(w in emotion or w in tone for w in ["أمان", "حنين", "هادئ", "calm", "هدوء"]):
+        mood = "calm"
+    elif any(w in emotion or w in tone for w in ["إثارة", "طاقة", "نشيط", "energetic", "حياة"]):
+        mood = "energetic"
+    elif any(w in emotion or w in tone for w in ["ملهم", "تحفيز", "inspirational", "إلهام"]):
+        mood = "inspirational"
+    elif any(w in emotion or w in tone for w in ["دافئ", "ودود", "warm", "انتماء", "عائلة"]):
+        mood = "warm"
+    elif any(w in emotion or w in tone for w in ["ثقة", "تفوّق", "قوة"]):
+        mood = "cinematic"
+
+    # If warm is empty, fallback to calm
+    mood_folder = base / mood
+    if not mood_folder.exists() or not list(mood_folder.glob("*.mp3")):
+        if mood == "warm":
+            mood = "calm"
+            mood_folder = base / mood
+        # Final fallback to cinematic
+        if not mood_folder.exists() or not list(mood_folder.glob("*.mp3")):
+            mood = "cinematic"
+            mood_folder = base / mood
+
+    # Pick random file
+    files = list(mood_folder.glob("*.mp3"))
+    if not files:
+        print("[MUSIC_LIB] No files found in any category")
+        return None
+
+    chosen = random.choice(files)
+    print("[MUSIC_LIB] Selected mood: " + mood + " | File: " + chosen.name)
+
+    return "/uploads/music_library/" + mood + "/" + chosen.name
 
