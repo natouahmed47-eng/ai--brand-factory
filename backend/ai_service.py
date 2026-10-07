@@ -1716,8 +1716,8 @@ def generate_scene_video_i2v(image_path, visual_description, duration=5, brand_c
         return None
 
 def prepare_image_for_i2v(image_path, aspect_ratio="9:16"):
-    """يُحضّر صورة المنتج بأبعاد 9:16 مع خلفية ضبابية احترافية"""
-    from PIL import Image, ImageFilter
+    """يقصّ صورة المنتج لتملأ إطار 9:16 (cover + crop) - منتج كبير ومتوازن"""
+    from PIL import Image, ImageOps, ImageFilter, ImageEnhance
     from pathlib import Path
     import uuid
 
@@ -1732,45 +1732,47 @@ def prepare_image_for_i2v(image_path, aspect_ratio="9:16"):
         img = Image.open(image_path).convert("RGB")
         orig_w, orig_h = img.size
 
-        # STEP 1: Create blurred background that fills the target
-        # Scale image to FILL target (cover), then blur
-        scale_fill = max(target_w / orig_w, target_h / orig_h)
-        fill_w = int(orig_w * scale_fill)
-        fill_h = int(orig_h * scale_fill)
-        bg = img.resize((fill_w, fill_h), Image.LANCZOS)
-        # Crop center
-        left = (fill_w - target_w) // 2
-        top = (fill_h - target_h) // 2
-        bg = bg.crop((left, top, left + target_w, top + target_h))
-        # Apply heavy blur + darken
-        bg = bg.filter(ImageFilter.GaussianBlur(radius=50))
-        # Darken by 30% to make product stand out
-        from PIL import ImageEnhance
-        enhancer = ImageEnhance.Brightness(bg)
-        bg = enhancer.enhance(0.5)
+        # If image is already vertical (portrait), use as-is with crop
+        if orig_h > orig_w:
+            # Just fit to target (crop if needed)
+            result = ImageOps.fit(img, (target_w, target_h), method=Image.LANCZOS, centering=(0.5, 0.4))
+        else:
+            # Image is landscape/square - zoom into center to fill vertical frame
+            # Crop a vertical slice from center of the image
+            target_ratio = target_w / target_h  # 0.5625 for 9:16
 
-        # STEP 2: Place product image in center (fits inside)
-        scale_fit = min(target_w / orig_w, target_h / orig_h)
-        new_w = int(orig_w * scale_fit)
-        new_h = int(orig_h * scale_fit)
-        product = img.resize((new_w, new_h), Image.LANCZOS)
+            # Calculate crop box
+            crop_w = orig_h * target_ratio
+            if crop_w > orig_w:
+                # Image not wide enough - just use whole image and pad minimally
+                # Scale up to fill by height
+                scale = target_h / orig_h
+                new_w = int(orig_w * scale)
+                scaled = img.resize((new_w, target_h), Image.LANCZOS)
+                # Crop center to 1080 width
+                left = (new_w - target_w) // 2
+                result = scaled.crop((left, 0, left + target_w, target_h))
+            else:
+                # Crop vertical slice from center
+                left = (orig_w - crop_w) // 2
+                cropped = img.crop((int(left), 0, int(left + crop_w), orig_h))
+                # Then resize to target
+                result = cropped.resize((target_w, target_h), Image.LANCZOS)
 
-        offset_x = (target_w - new_w) // 2
-        offset_y = (target_h - new_h) // 2
-        bg.paste(product, (offset_x, offset_y))
-
-        # STEP 3: Save
+        # Save
         folder = Path("uploads/products")
         folder.mkdir(parents=True, exist_ok=True)
         temp_name = "i2v_" + str(uuid.uuid4()) + ".png"
         temp_path = folder / temp_name
-        bg.save(temp_path, "PNG")
+        result.save(temp_path, "PNG")
 
+        print("[PREPARE] Original: " + str(orig_w) + "x" + str(orig_h) + " -> Target: " + str(target_w) + "x" + str(target_h))
         return "/uploads/products/" + temp_name
 
     except Exception as e:
         print("[PREPARE_IMG_ERROR] " + str(e))
         return None
+
 
 def select_music_from_library(brand_data, product=None):
     """يختار مقطوعة موسيقية من المكتبة المحلية حسب Brand Brain"""
