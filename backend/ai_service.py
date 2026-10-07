@@ -984,14 +984,29 @@ def full_production_pipeline(brand_data, idea, product=None, max_scenes=None, pr
             scene_result["image_url"] = img
             report("image", "done", "scene " + str(i))
 
-            # Video
+            # Video - Use i2v if product has images, else t2v
             report("video", "running", "scene " + str(i))
-            vid = generate_scene_video_dashscope(
-                visual_description=scene_visual,
-                duration=scene.get("duration", 3),
-                brand_colors=brand_colors,
-                aspect_ratio="9:16",
-            )
+            
+            product_images = (product or {}).get("images") or []
+            if product_images and len(product_images) > 0:
+                # Use first image for i2v
+                img_path = product_images[i % len(product_images)]
+                print("[PIPELINE] Using i2v with product image: " + str(img_path))
+                vid = generate_scene_video_i2v(
+                    image_path=img_path,
+                    visual_description=scene_visual,
+                    duration=scene.get("duration", 3),
+                    brand_colors=brand_colors,
+                    aspect_ratio="9:16",
+                )
+            else:
+                # Fallback to t2v
+                vid = generate_scene_video_dashscope(
+                    visual_description=scene_visual,
+                    duration=scene.get("duration", 3),
+                    brand_colors=brand_colors,
+                    aspect_ratio="9:16",
+                )
             scene_result["video_url"] = vid
             report("video", "done", "scene " + str(i))
 
@@ -1584,5 +1599,101 @@ def generate_scene_video_dashscope(visual_description, duration=5, brand_colors=
 
     except Exception as e:
         print("[DASHSCOPE_ERROR] " + str(e))
+        return None
+
+def generate_scene_video_i2v(image_path, visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+    """يولّد فيديو من صورة المنتج (Image-to-Video) عبر Wan 2.2"""
+    import os
+    import time
+    import uuid
+    import requests
+    from pathlib import Path
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    api_key = os.getenv("DASHSCOPE_API_KEY")
+    public_url = os.getenv("PUBLIC_URL", "").rstrip("/")
+
+    if not api_key or not public_url:
+        print("[I2V_ERROR] Missing API key or PUBLIC_URL")
+        return None
+
+    import dashscope
+    dashscope.base_http_api_url = "https://dashscope-intl.aliyuncs.com/api/v1"
+    dashscope.api_key = api_key
+
+    from dashscope import VideoSynthesis
+
+    # Convert local path to public URL
+    if image_path.startswith("/uploads/"):
+        img_url = public_url + image_path
+    elif image_path.startswith("http"):
+        img_url = image_path
+    else:
+        img_url = public_url + "/" + image_path.lstrip("/")
+
+    print("[I2V] Image URL: " + img_url)
+
+    colors_str = ""
+    if brand_colors:
+        colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
+
+    prompt = "Cinematic advertising video. " + str(visual_description) + colors_str
+
+    if aspect_ratio == "9:16":
+        size = "1080*1920"
+    elif aspect_ratio == "16:9":
+        size = "1920*1080"
+    else:
+        size = "1080*1920"
+
+    try:
+        print("[I2V] Submitting...")
+        rsp = VideoSynthesis.async_call(
+            model="wan2.2-i2v-plus",
+            prompt=prompt,
+            img_url=img_url,
+            resolution="720P",
+        )
+
+        if rsp.status_code != 200:
+            print("[I2V_ERROR] " + str(rsp.status_code) + " | " + str(rsp.message))
+            return None
+
+        task_id = rsp.output.task_id
+        print("[I2V] Task ID: " + str(task_id))
+
+        for i in range(120):
+            time.sleep(10)
+            try:
+                status_rsp = VideoSynthesis.fetch(task_id)
+                status = status_rsp.output.task_status
+                print("[I2V] Status: " + str(status))
+
+                if status == "SUCCEEDED":
+                    video_url = status_rsp.output.video_url
+                    filename = str(uuid.uuid4()) + ".mp4"
+                    folder = Path("uploads/videos")
+                    folder.mkdir(parents=True, exist_ok=True)
+                    local_path = folder / filename
+
+                    video_data = requests.get(video_url, timeout=300)
+                    with open(local_path, "wb") as f:
+                        f.write(video_data.content)
+
+                    return "/uploads/videos/" + filename
+
+                elif status in ["FAILED", "CANCELED", "UNKNOWN"]:
+                    print("[I2V_ERROR] " + str(status_rsp)[:400])
+                    return None
+
+            except Exception as e:
+                print("[I2V_POLL_ERR] " + str(e)[:100])
+
+        return None
+
+    except Exception as e:
+        print("[I2V_ERROR] " + str(e))
         return None
 
