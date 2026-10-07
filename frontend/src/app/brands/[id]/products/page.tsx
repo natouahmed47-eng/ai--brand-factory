@@ -130,9 +130,9 @@ export default function ProductsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white" dir="rtl">
-      <nav className="border-b border-white/10 px-6 py-4">
-        <Link href={'/brands/' + brandId} className="text-blue-400 hover:underline text-sm">
+    <main className="min-h-screen bg-[#0B0B0D] text-[#F5F5F0]" dir="rtl">
+      <nav className="border-b border-[rgba(212,165,116,0.12)] px-6 py-4">
+        <Link href={'/brands/' + brandId} className="text-[#D4A574] hover:underline text-sm">
           ← العودة إلى البراند
         </Link>
       </nav>
@@ -141,58 +141,58 @@ export default function ProductsPage() {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">منتجاتي</h1>
-            <p className="text-gray-400">أضف منتجاتك ليستخدمها AI في إنشاء المحتوى.</p>
+            <p className="text-[#8B8B8B]">أضف منتجاتك ليستخدمها AI في إنشاء المحتوى.</p>
           </div>
           <button
             onClick={() => setShowForm(!showForm)}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:opacity-90 rounded-lg font-semibold transition"
+            className="px-6 py-3 bg-[#D4A574] hover:opacity-90 rounded-lg font-semibold transition"
           >
             {showForm ? 'إلغاء' : '+ إضافة منتج'}
           </button>
         </div>
 
         {showForm && (
-          <form onSubmit={handleCreate} className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 space-y-4">
+          <form onSubmit={handleCreate} className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-6 mb-8 space-y-4">
             <div>
-              <label className="block text-sm text-gray-300 mb-2">اسم المنتج *</label>
+              <label className="block text-sm text-[#F5F5F0] mb-2">اسم المنتج *</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white"
+                className="w-full px-4 py-3 rounded-lg bg-[#1A1A1F] border border-[rgba(212,165,116,0.2)] text-white"
                 placeholder="مثال: عطر نُوى الفاخر"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-300 mb-2">الوصف</label>
+              <label className="block text-sm text-[#F5F5F0] mb-2">الوصف</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white resize-none"
+                className="w-full px-4 py-3 rounded-lg bg-[#1A1A1F] border border-[rgba(212,165,116,0.2)] text-white resize-none"
                 placeholder="مثال: عطر شرقي فاخر بمكونات نادرة"
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-300 mb-2">السعر (اختياري)</label>
+              <label className="block text-sm text-[#F5F5F0] mb-2">السعر (اختياري)</label>
               <input
                 type="text"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white"
+                className="w-full px-4 py-3 rounded-lg bg-[#1A1A1F] border border-[rgba(212,165,116,0.2)] text-white"
                 placeholder="مثال: 850 ريال"
               />
             </div>
             {error && (
-              <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-[rgba(224,82,82,0.1)] border border-[rgba(224,82,82,0.3)] text-[#E05252] px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
             <button
               type="submit"
               disabled={creating}
-              className="px-8 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 rounded-lg font-semibold transition"
+              className="px-8 py-3 bg-[#D4A574] hover:bg-[#E5B98A] disabled:opacity-50 rounded-lg font-semibold transition"
             >
               {creating ? 'جاري الإنشاء...' : 'إنشاء المنتج'}
             </button>
@@ -200,14 +200,14 @@ export default function ProductsPage() {
         )}
 
         {loading ? (
-          <div className="text-center py-12 text-gray-400">جاري التحميل...</div>
+          <div className="text-center py-12 text-[#8B8B8B]">جاري التحميل...</div>
         ) : products.length === 0 ? (
-          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-2xl p-12 text-center">
+          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-[#D4A574]/30 rounded-2xl p-12 text-center">
             <h3 className="text-2xl font-bold mb-3">لا توجد منتجات بعد</h3>
-            <p className="text-gray-300 mb-6">أضف منتجك الأول لتبدأ إنشاء الحملات الإعلانية.</p>
+            <p className="text-[#F5F5F0] mb-6">أضف منتجك الأول لتبدأ إنشاء الحملات الإعلانية.</p>
             <button
               onClick={() => setShowForm(true)}
-              className="px-8 py-3 bg-blue-500 hover:bg-blue-600 rounded-lg font-semibold transition"
+              className="px-8 py-3 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg font-semibold transition"
             >
               + إضافة منتج
             </button>
@@ -215,12 +215,12 @@ export default function ProductsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {products.map((product) => (
-              <div key={product.id} className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <div key={product.id} className="bg-[#1A1A1F] border border-[rgba(212,165,116,0.12)] rounded-2xl p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="text-xl font-bold">{product.name}</h3>
                     {product.price && (
-                      <div className="text-sm text-blue-400 mt-1">{product.price}</div>
+                      <div className="text-sm text-[#D4A574] mt-1">{product.price}</div>
                     )}
                   </div>
                   <button
@@ -232,7 +232,7 @@ export default function ProductsPage() {
                 </div>
 
                 {product.description && (
-                  <p className="text-sm text-gray-400 mb-4">{product.description}</p>
+                  <p className="text-sm text-[#8B8B8B] mb-4">{product.description}</p>
                 )}
 
                 <div className="grid grid-cols-3 gap-2 mb-4">
@@ -241,12 +241,12 @@ export default function ProductsPage() {
                       key={i}
                       src={'http://localhost:8000' + img}
                       alt={product.name}
-                      className="w-full h-24 object-cover rounded-lg border border-white/10"
+                      className="w-full h-24 object-cover rounded-lg border border-[rgba(212,165,116,0.12)]"
                     />
                   ))}
                   <label
                     htmlFor={'file-input-' + product.id}
-                    className="w-full h-24 border-2 border-dashed border-white/20 rounded-lg flex items-center justify-center text-xs text-gray-400 hover:border-blue-500/50 hover:text-blue-400 transition cursor-pointer"
+                    className="w-full h-24 border-2 border-dashed border-[rgba(212,165,116,0.2)] rounded-lg flex items-center justify-center text-xs text-[#8B8B8B] hover:border-[#D4A574]/50 hover:text-[#D4A574] transition cursor-pointer"
                   >
                     {uploadingProductId === product.id ? '⏳' : '+ صورة'}
                   </label>
@@ -261,7 +261,7 @@ export default function ProductsPage() {
                 </div>
 
                 {product.images && product.images.length >= 3 && (
-                  <div className="text-xs text-green-400 mb-2">✓ جاهز للحملات ({product.images.length} صور)</div>
+                  <div className="text-xs text-[#6BBF7A] mb-2">✓ جاهز للحملات ({product.images.length} صور)</div>
                 )}
                 {(!product.images || product.images.length < 3) && (
                   <div className="text-xs text-yellow-400 mb-2">⚠ يحتاج 3 صور على الأقل</div>

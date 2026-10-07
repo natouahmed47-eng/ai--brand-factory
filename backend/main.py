@@ -1245,3 +1245,26 @@ def admin_me(admin: User = Depends(get_admin_user)):
         "is_admin": True,
     }
 
+
+# ============ Change Password ============
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@app.post("/auth/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="No password set")
+    if not verify_password(data.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="كلمة المرور الحالية خاطئة")
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="كلمة المرور يجب أن تكون 8 أحرف على الأقل")
+    user.password_hash = hash_password(data.new_password)
+    db.commit()
+    return {"message": "Password changed successfully"}
+
