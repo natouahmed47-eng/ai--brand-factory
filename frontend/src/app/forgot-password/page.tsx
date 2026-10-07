@@ -1,108 +1,205 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useState } from "react";
+import Link from "next/link";
+import { Sparkles, Loader2, ArrowLeft, Mail, CheckCircle2 } from "lucide-react";
+import { theme } from "../../lib/theme";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [token, setToken] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState("");
+  const [token, setToken] = useState("");
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     try {
-      const res = await fetch('http://localhost:8000/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("http://localhost:8000/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data.detail || 'حدث خطأ');
+        setError(data.detail || "حدث خطأ. حاول مرة أخرى.");
         setLoading(false);
         return;
       }
 
-      setMessage('تم إرسال رابط إعادة التعيين إلى بريدك');
-      if (data.token) {
-        setToken(data.token);
-      }
+      setMessage("تم إرسال رابط إعادة التعيين إلى بريدك.");
+      if (data.token) setToken(data.token);
       setLoading(false);
     } catch {
-      setError('خطأ في الاتصال بالخادم');
+      setError("تعذّر الاتصال بالخادم.");
       setLoading(false);
     }
   };
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center px-6" dir="rtl">
-      <div className="w-full max-w-md bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10">
-        <h1 className="text-3xl font-bold text-white text-center mb-2">
-          نسيت كلمة المرور؟
-        </h1>
-        <p className="text-gray-400 text-center mb-8">
-          أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين
-        </p>
+  const inputStyle: React.CSSProperties = {
+    background: "rgba(255,255,255,0.03)",
+    border: `1px solid ${theme.lineSoft}`,
+    color: theme.text,
+  };
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">
-              البريد الإلكتروني
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-500 focus:outline-none focus:border-blue-400"
-              placeholder="you@example.com"
-            />
+  return (
+    <main
+      className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
+      style={{ background: theme.bg, color: theme.text }}
+    >
+      <div
+        className="fixed top-1/4 -right-40 w-[500px] h-[500px] rounded-full opacity-[0.08] blur-[120px] pointer-events-none"
+        style={{ background: theme.gold }}
+      />
+      <div
+        className="fixed bottom-0 -left-40 w-[400px] h-[400px] rounded-full opacity-[0.05] blur-[120px] pointer-events-none"
+        style={{ background: theme.gold }}
+      />
+
+      <div className="w-full max-w-md relative">
+        <Link
+          href="/"
+          className="flex items-center justify-center gap-2.5 mb-10 group"
+        >
+          <Sparkles
+            className="w-5 h-5 transition group-hover:scale-110"
+            style={{ color: theme.gold }}
+          />
+          <span className="text-lg font-medium tracking-wide">
+            AI Brand Factory
+          </span>
+        </Link>
+
+        <div
+          className="rounded-3xl p-8 sm:p-10"
+          style={{
+            background: theme.card,
+            border: `1px solid ${theme.lineSoft}`,
+          }}
+        >
+          <div className="text-center mb-8">
+            <div
+              className="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-5"
+              style={{
+                background: "rgba(212,165,116,0.08)",
+                border: `1px solid ${theme.line}`,
+              }}
+            >
+              <Mail className="w-6 h-6" style={{ color: theme.gold }} />
+            </div>
+            <h1 className="text-2xl font-light mb-2">نسيت كلمة المرور؟</h1>
+            <p className="text-sm" style={{ color: theme.muted }}>
+              أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين
+            </p>
           </div>
 
-          {error && (
-            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg text-sm">
-              {error}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label
+                className="block text-xs tracking-widest mb-2"
+                style={{ color: theme.muted }}
+              >
+                البريد الإلكتروني
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+                dir="ltr"
+                className="w-full px-4 py-3 rounded-xl outline-none transition text-left"
+                style={inputStyle}
+                onFocus={(e) =>
+                  (e.currentTarget.style.borderColor = theme.gold)
+                }
+                onBlur={(e) =>
+                  (e.currentTarget.style.borderColor = theme.lineSoft)
+                }
+              />
             </div>
-          )}
 
-          {message && (
-            <div className="bg-green-500/20 border border-green-500/50 text-green-200 px-4 py-3 rounded-lg text-sm">
-              {message}
-            </div>
-          )}
+            {error && (
+              <div
+                className="text-sm px-4 py-3 rounded-xl"
+                style={{
+                  background: "rgba(224,82,82,0.1)",
+                  border: `1px solid rgba(224,82,82,0.3)`,
+                  color: theme.danger,
+                }}
+              >
+                {error}
+              </div>
+            )}
 
-          {token && (
-            <div className="bg-blue-500/20 border border-blue-500/50 text-blue-100 px-4 py-3 rounded-lg text-xs break-all">
-              <p className="font-bold mb-1">رابط إعادة التعيين:</p>
-              <Link href={'/reset-password?token=' + token} className="text-blue-300 underline">
-                اضغط هنا لإعادة تعيين كلمة المرور
-              </Link>
-            </div>
-          )}
+            {message && (
+              <div
+                className="rounded-2xl p-4"
+                style={{
+                  background: "rgba(107,191,122,0.08)",
+                  border: `1px solid rgba(107,191,122,0.3)`,
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <CheckCircle2
+                    className="w-4 h-4 mt-0.5 shrink-0"
+                    style={{ color: theme.success }}
+                  />
+                  <div className="flex-1 text-sm" style={{ color: theme.success }}>
+                    <div className="font-medium mb-1">{message}</div>
+                    {token && (
+                      <Link
+                        href={"/reset-password?token=" + token}
+                        className="text-xs underline hover:opacity-80 transition"
+                        style={{ color: theme.gold }}
+                      >
+                        إعادة تعيين كلمة المرور الآن ←
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 text-white font-semibold rounded-lg transition"
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 rounded-full font-medium transition disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
+              style={{ background: theme.gold, color: theme.bg }}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  جارٍ الإرسال...
+                </>
+              ) : (
+                <>
+                  إرسال رابط الاستعادة
+                  <ArrowLeft className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div
+            className="mt-6 text-center text-sm"
+            style={{ color: theme.muted }}
           >
-            {loading ? 'جاري الإرسال...' : 'إرسال رابط الاستعادة'}
-          </button>
-        </form>
-
-        <p className="text-center text-gray-400 mt-6 text-sm">
-          تذكرت كلمة المرور؟{' '}
-          <Link href="/login" className="text-blue-400 hover:underline">
-            تسجيل الدخول
-          </Link>
-        </p>
+            <Link
+              href="/login"
+              className="transition hover:opacity-80"
+              style={{ color: theme.gold }}
+            >
+              العودة لتسجيل الدخول
+            </Link>
+          </div>
+        </div>
       </div>
     </main>
   );
