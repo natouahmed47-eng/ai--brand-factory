@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Git
+.git/
+# Local backups
+**/page_BACKUP.txt
+**/page_new_BACKUP.txt
+
+# Uploaded assets
+backend/uploads/voices/
+backend/uploads/videos/
+backend/uploads/scenes/
+backend/uploads/captions/
+
+# Showcase videos (large)
+
+# Backups
+*.bak
+backup_*.sql
+
+# Generated media (large)
+backend/uploads/final/
+backend/uploads/scenes_merged/
+backend/uploads/captions/
+
+# Generated uploads
+backend/uploads/final/
+backend/uploads/scenes_merged/
+backend/uploads/videos/
+backend/uploads/voices/
+backend/uploads/scenes/
+backend/uploads/captions/
+backend/uploads/products/
+
+# Build cache
+frontend/.next/
+
+# Backups
+*.bak
+backup_*.sql
