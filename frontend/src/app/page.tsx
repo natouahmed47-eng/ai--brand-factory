@@ -1,6 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { openPaddleCheckout } from "../lib/paddle";
 import Link from "next/link";
 import {
   Sparkles, ArrowLeft, Check, ChevronDown,
@@ -410,6 +412,31 @@ function Showcase() {
 }
 
 function Pricing() {
+  const router = useRouter();
+  const [subscribing, setSubscribing] = useState<string>("");
+
+  const handleSubscribe = async (plan: "pro" | "business") => {
+    setSubscribing(plan);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+      await openPaddleCheckout(
+        plan,
+        () => {
+          setSubscribing("");
+          router.push("/payment/success");
+        },
+        () => setSubscribing(""),
+      );
+    } catch (e: any) {
+      setSubscribing("");
+      alert(e?.message || "حدث خطأ. حاول مرة أخرى.");
+    }
+  };
+
   const plans = [
     { name: "Free", price: "0", period: "للأبد", features: ["٣ حملات شهريًا", "Watermark", "جودة ٧٢٠p", "Brand Brain أساسي"], cta: "ابدأ مجانًا", featured: false },
     { name: "Pro", price: "٢٩", period: "/شهر", features: ["٣٠ حملة شهريًا", "بدون Watermark", "جودة ١٠٨٠p", "Brand Brain كامل", "أولوية توليد"], cta: "ابدأ Pro", featured: true },
@@ -463,15 +490,26 @@ function Pricing() {
                   </li>
                 ))}
               </ul>
-              <Link
-                href="/signup"
-                className="block text-center text-sm font-medium py-3 rounded-full transition"
-                style={p.featured
-                  ? { background: GOLD, color: "#0B0B0D" }
-                  : { border: "1px solid rgba(255,255,255,0.1)", color: TEXT }}
-              >
-                {p.cta}
-              </Link>
+              {p.name === "Free" ? (
+                <Link
+                  href="/signup"
+                  className="block text-center text-sm font-medium py-3 rounded-full transition"
+                  style={{ border: "1px solid rgba(255,255,255,0.1)", color: TEXT }}
+                >
+                  {p.cta}
+                </Link>
+              ) : (
+                <button
+                  onClick={() => handleSubscribe(p.name.toLowerCase() as "pro" | "business")}
+                  disabled={subscribing === p.name.toLowerCase()}
+                  className="block w-full text-center text-sm font-medium py-3 rounded-full transition disabled:opacity-50"
+                  style={p.featured
+                    ? { background: GOLD, color: "#0B0B0D" }
+                    : { border: "1px solid rgba(255,255,255,0.1)", color: TEXT }}
+                >
+                  {subscribing === p.name.toLowerCase() ? "جارٍ الفتح..." : p.cta}
+                </button>
+              )}
             </motion.div>
           ))}
         </div>

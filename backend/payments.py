@@ -165,51 +165,126 @@ def _to_naive_dt(iso_str: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def _identify_plan_from_price(price_id: str) -> str:
+    if price_id == PADDLE_PRICE_ID_PRO:
+        return "pro"
+    if price_id == PADDLE_PRICE_ID_BUSINESS:
+        return "business"
+    return ""
+
+
+def _extract_workspace_id(db, data: dict, custom: dict) -> str:
+    """Try multiple sources to find workspace_id."""
+    # Source 1: custom_data
+    wid = custom.get("workspace_id")
+    if wid:
+        return str(wid)
+
+    # Source 2: customer email
+    customer = data.get("customer") or {}
+    email = customer.get("email") or data.get("customer_email")
+    if email:
+        row = db.execute(
+            text("SELECT workspace_id FROM users WHERE email = :e LIMIT 1"),
+            {"e": email},
+        ).fetchone()
+        if row and row[0]:
+            return str(row[0])
+
+    # Source 3: subscription_id lookup
+    sub_id = data.get("subscription_id") or (
+        data.get("id") if str(data.get("id", "")).startswith("sub_") else None
+    )
+    if sub_id:
+        row = db.execute(
+            text("SELECT id FROM workspaces WHERE paddle_subscription_id = :s LIMIT 1"),
+            {"s": sub_id},
+        ).fetchone()
+        if row and row[0]:
+            return str(row[0])
+
+    # Source 4: customer_id lookup
+    cust_id = data.get("customer_id") or (data.get("customer") or {}).get("id")
+    if cust_id:
+        row = db.execute(
+            text("SELECT id FROM workspaces WHERE paddle_customer_id = :c LIMIT 1"),
+            {"c": cust_id},
+        ).fetchone()
+        if row and row[0]:
+            return str(row[0])
+
+    return ""
+
+
 def process_webhook_event(db, event: dict) -> dict:
-    """
-    Handles Paddle webhook events and updates workspace row.
-    Returns { "handled": bool, "event_type": str }
-    """
+    """Handles Paddle webhook events and updates workspace row."""
+    import sys
     event_type = event.get("event_type", "")
     data = event.get("data", {}) or {}
 
-    # Extract workspace_id from custom_data (set at checkout)
+    print("\n" + "=" * 60, file=sys.stderr, flush=True)
+    print("[WEBHOOK]", event_type, file=sys.stderr, flush=True)
+    print("=" * 60, file=sys.stderr, flush=True)
+
+    # 1. Try to find workspace_id
     custom = data.get("custom_data") or {}
-    workspace_id = custom.get("workspace_id")
-
-    # For subscription events, workspace may be in data.custom_data directly
-    if not workspace_id:
-        sub_custom = (data.get("custom_data") or {})
-        workspace_id = sub_custom.get("workspace_id")
+    workspace_id = _extract_workspace_id(db, data, custom)
 
     if not workspace_id:
+        print("[FAIL] No workspace_id found in event", file=sys.stderr, flush=True)
         return {"handled": False, "event_type": event_type, "reason": "no workspace_id"}
 
-    # Common fields
-    paddle_customer_id = data.get("customer_id") or (data.get("customer") or {}).get("id")
-    paddle_subscription_id = data.get("subscription_id") or data.get("id")
-    status = data.get("status")
+    print("[OK] workspace_id =", workspace_id, file=sys.stderr, flush=True)
 
-    # Map Paddle statuses -> internal statuses
+    # 2. Identify plan (from custom_data or price_id)
+    plan = (custom.get("plan") or "").lower()
+    if not plan:
+        items = data.get("items") or []
+        if items:
+            price_id = (items[0].get("price") or {}).get("id", "")
+            plan = _identify_plan_from_price(price_id)
+            print("[OK] plan from price_id:", plan, file=sys.stderr, flush=True)
+
+    # 3. Common fields
+    paddle_customer_id = data.get("customer_id") or (data.get("customer") or {}).get("id")
+    paddle_subscription_id = data.get("subscription_id")
+    if not paddle_subscription_id and str(data.get("id", "")).startswith("sub_"):
+        paddle_subscription_id = data.get("id")
+
+    status = data.get("status")
     status_map = {
         "active": "active",
         "trialing": "active",
         "past_due": "past_due",
         "canceled": "canceled",
         "paused": "canceled",
+        "completed": "active",
+        "paid": "active",
     }
-    internal_status = status_map.get(status, status)
+    internal_status = status_map.get(status, status) if status else None
 
-    # Period end
+    # 4. Period end
     period = data.get("current_billing_period") or {}
     ends_at = _to_naive_dt(period.get("ends_at"))
 
-    # Canceled events: use canceled_at
     if event_type == "subscription.canceled":
         internal_status = "canceled"
         ends_at = _to_naive_dt(data.get("canceled_at")) or ends_at
 
-    # Update workspace
+    # transaction.completed → mark as active
+    if event_type == "transaction.completed" and not internal_status:
+        internal_status = "active"
+
+    # 4b. Compute new plan in Python (safer than SQL CASE)
+    new_plan = None
+    if internal_status == "active" and plan:
+        new_plan = plan
+    elif internal_status == "canceled":
+        new_plan = "Free"
+    elif internal_status == "past_due" and plan:
+        new_plan = plan
+
+    # 5. Update workspace
     try:
         db.execute(
             text(
@@ -217,13 +292,9 @@ def process_webhook_event(db, event: dict) -> dict:
                 UPDATE workspaces
                 SET paddle_customer_id = COALESCE(:cid, paddle_customer_id),
                     paddle_subscription_id = COALESCE(:sid, paddle_subscription_id),
-                    subscription_status = :status,
-                    subscription_ends_at = :ends_at,
-                    plan = CASE
-                        WHEN :status = 'active' AND :plan <> '' THEN :plan
-                        WHEN :status = 'canceled' THEN 'Free'
-                        ELSE plan
-                    END
+                    subscription_status = COALESCE(:status, subscription_status),
+                    subscription_ends_at = COALESCE(:ends_at, subscription_ends_at),
+                    plan = COALESCE(:new_plan, plan)
                 WHERE id = :wid
                 """
             ),
@@ -232,16 +303,18 @@ def process_webhook_event(db, event: dict) -> dict:
                 "sid": paddle_subscription_id,
                 "status": internal_status,
                 "ends_at": ends_at,
-                "plan": (custom.get("plan") or "").lower(),
+                "new_plan": new_plan,
                 "wid": workspace_id,
             },
         )
         db.commit()
+        print("[OK] DB updated -", internal_status, "plan =", plan, file=sys.stderr, flush=True)
     except Exception as e:
         db.rollback()
+        print("[FAIL] DB error:", e, file=sys.stderr, flush=True)
         return {"handled": False, "event_type": event_type, "reason": str(e)}
 
-    return {"handled": True, "event_type": event_type}
+    return {"handled": True, "event_type": event_type, "workspace_id": workspace_id}
 
 
 # ============================================
