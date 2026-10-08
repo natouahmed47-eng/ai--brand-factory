@@ -2,8 +2,9 @@ import os
 import uuid
 import threading
 import secrets
+import json
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
 from fastapi.staticfiles import StaticFiles
 import shutil
 from pathlib import Path
@@ -18,6 +19,12 @@ from pydantic import BaseModel, EmailStr
 from auth import hash_password, verify_password, create_access_token, decode_access_token
 from brand_brain import extract_colors
 from ai_service import generate_creative_ideas, generate_script, generate_captions, generate_scene_music
+from payments import (
+    create_checkout_session,
+    verify_webhook_signature,
+    process_webhook_event,
+    get_subscription,
+)
 
 load_dotenv()
 
@@ -1268,3 +1275,50 @@ def change_password(
     db.commit()
     return {"message": "Password changed successfully"}
 
+
+# ============================================
+# PAYMENTS (Paddle)
+# ============================================
+
+class CheckoutRequest(BaseModel):
+    plan: str
+
+
+@app.post("/payments/checkout")
+def payments_checkout(
+    body: CheckoutRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    result = create_checkout_session(
+        db=db,
+        workspace_id=str(user.workspace_id),
+        plan=body.plan,
+        customer_email=user.email,
+    )
+    return result
+
+
+@app.get("/payments/subscription")
+def payments_subscription(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_subscription(db, str(user.workspace_id))
+
+
+@app.post("/payments/webhook")
+async def payments_webhook(request: Request, db: Session = Depends(get_db)):
+    raw_body = await request.body()
+    signature = request.headers.get("Paddle-Signature", "")
+
+    if not verify_webhook_signature(raw_body, signature):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    try:
+        event = json.loads(raw_body.decode("utf-8"))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    result = process_webhook_event(db, event)
+    return {"ok": True, **result}
