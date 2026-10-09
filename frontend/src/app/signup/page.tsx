@@ -19,7 +19,7 @@ export default function SignupPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("http://localhost:8000/auth/signup", {
+      const res = await fetch("https://ai-brand-factory-production.up.railway.app/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

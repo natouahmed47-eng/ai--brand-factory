@@ -15,10 +15,10 @@ export default function AdminCostsPage() {
     if (!token) { router.push('/login'); return; }
 
     Promise.all([
-      fetch('http://localhost:8000/admin/stats', {
+      fetch('https://ai-brand-factory-production.up.railway.app/admin/stats', {
         headers: { Authorization: 'Bearer ' + token },
       }).then((r) => r.json()),
-      fetch('http://localhost:8000/admin/users', {
+      fetch('https://ai-brand-factory-production.up.railway.app/admin/users', {
         headers: { Authorization: 'Bearer ' + token },
       }).then((r) => r.json()),
     ])

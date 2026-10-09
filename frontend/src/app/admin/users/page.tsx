@@ -33,7 +33,7 @@ export default function AdminUsersPage() {
       return;
     }
 
-    fetch('http://localhost:8000/admin/users', {
+    fetch('https://ai-brand-factory-production.up.railway.app/admin/users', {
       headers: { Authorization: 'Bearer ' + token },
     })
       .then((res) => {

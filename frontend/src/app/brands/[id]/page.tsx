@@ -33,7 +33,7 @@ export default function BrandDetailPage() {
       return;
     }
 
-    fetch(`http://localhost:8000/brands/${brandId}`, {
+    fetch(`https://ai-brand-factory-production.up.railway.app/brands/${brandId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
@@ -62,7 +62,7 @@ export default function BrandDetailPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch(`http://localhost:8000/brands/${brandId}/logo`, {
+      const res = await fetch(`https://ai-brand-factory-production.up.railway.app/brands/${brandId}/logo`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -107,7 +107,7 @@ export default function BrandDetailPage() {
     );
   }
 
-  const logoUrl = brand.logo_url ? `http://localhost:8000${brand.logo_url}` : null;
+  const logoUrl = brand.logo_url ? `https://ai-brand-factory-production.up.railway.app${brand.logo_url}` : null;
 
   return (
     <main className="min-h-screen bg-[#0B0B0D] text-[#F5F5F0]">

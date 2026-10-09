@@ -25,7 +25,7 @@ export default function NewBrandPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8000/brands", {
+      const res = await fetch("https://ai-brand-factory-production.up.railway.app/brands", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -18,7 +18,7 @@ export default function AdminPage() {
     }
 
     // Verify admin access
-    fetch('http://localhost:8000/admin/me', {
+    fetch('https://ai-brand-factory-production.up.railway.app/admin/me', {
       headers: { Authorization: 'Bearer ' + token },
     })
       .then((res) => {
@@ -27,7 +27,7 @@ export default function AdminPage() {
           setLoading(false);
           return null;
         }
-        return fetch('http://localhost:8000/admin/stats', {
+        return fetch('https://ai-brand-factory-production.up.railway.app/admin/stats', {
           headers: { Authorization: 'Bearer ' + token },
         });
       })

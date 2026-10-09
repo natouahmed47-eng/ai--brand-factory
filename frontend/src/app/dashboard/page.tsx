@@ -38,7 +38,7 @@ type Campaign = {
   created_at: string;
 };
 
-const API = "http://localhost:8000";
+const API = "https://ai-brand-factory-production.up.railway.app";
 
 export default function DashboardPage() {
   const router = useRouter();

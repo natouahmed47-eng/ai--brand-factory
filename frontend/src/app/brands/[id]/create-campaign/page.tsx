@@ -54,7 +54,7 @@ export default function CreateCampaignPage() {
       return;
     }
 
-    fetch('http://localhost:8000/brands/' + brandId + '/products', {
+    fetch('https://ai-brand-factory-production.up.railway.app/brands/' + brandId + '/products', {
       headers: { Authorization: 'Bearer ' + token },
     })
       .then((res) => res.json())
@@ -74,7 +74,7 @@ export default function CreateCampaignPage() {
 
   const connectWebSocket = (campaignId: string) => {
     if (wsRef.current) wsRef.current.close();
-    const ws = new WebSocket('ws://localhost:8000/ws/campaigns/' + campaignId);
+    const ws = new WebSocket('wss://ai-brand-factory-production.up.railway.app/ws/campaigns/' + campaignId);
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
@@ -101,7 +101,7 @@ export default function CreateCampaignPage() {
     const pollInterval = setInterval(async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:8000/campaigns/' + campaignId, {
+        const res = await fetch('https://ai-brand-factory-production.up.railway.app/campaigns/' + campaignId, {
           headers: { Authorization: 'Bearer ' + token },
         });
         const data = await res.json();
@@ -132,7 +132,7 @@ export default function CreateCampaignPage() {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/campaigns/ideas', {
+      const res = await fetch('https://ai-brand-factory-production.up.railway.app/campaigns/ideas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ brand_id: brandId, product_id: selectedProduct.id }),
@@ -158,7 +158,7 @@ export default function CreateCampaignPage() {
     setElapsed(0);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/campaigns', {
+      const res = await fetch('https://ai-brand-factory-production.up.railway.app/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ brand_id: brandId, product_id: selectedProduct?.id || null, idea }),
@@ -266,7 +266,7 @@ export default function CreateCampaignPage() {
                           {product.images && product.images.slice(0, 3).map((img, i) => (
                             <img
                               key={i}
-                              src={'http://localhost:8000' + img}
+                              src={'https://ai-brand-factory-production.up.railway.app' + img}
                               alt={product.name}
                               className="w-full h-16 object-cover rounded"
                             />
@@ -385,13 +385,13 @@ export default function CreateCampaignPage() {
             <video
               controls
               className="w-full max-w-md mx-auto rounded-2xl border border-[rgba(212,165,116,0.12)] shadow-2xl mb-8"
-              src={'http://localhost:8000' + campaign.final_url}
+              src={'https://ai-brand-factory-production.up.railway.app' + campaign.final_url}
             />
             <div className="flex gap-4 justify-center flex-wrap">
               <button
                 onClick={async () => {
                   try {
-                    const url = 'http://localhost:8000' + campaign.final_url;
+                    const url = 'https://ai-brand-factory-production.up.railway.app' + campaign.final_url;
                     const res = await fetch(url);
                     const blob = await res.blob();
                     const blobUrl = window.URL.createObjectURL(blob);

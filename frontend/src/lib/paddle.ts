@@ -49,7 +49,7 @@ export async function openPaddleCheckout(
   if (!clientToken) throw new Error("PADDLE_TOKEN_MISSING");
 
   // 1. Create Paddle transaction on backend
-  const res = await fetch("http://localhost:8000/payments/checkout", {
+  const res = await fetch("https://ai-brand-factory-production.up.railway.app/payments/checkout", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -19,7 +19,7 @@ export default function ForgotPasswordPage() {
     setMessage("");
 
     try {
-      const res = await fetch("http://localhost:8000/auth/forgot-password", {
+      const res = await fetch("https://ai-brand-factory-production.up.railway.app/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

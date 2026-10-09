@@ -39,7 +39,7 @@ export default function CampaignDetailPage() {
     }
 
     const fetchCampaign = () => {
-      fetch('http://localhost:8000/campaigns/' + campaignId, {
+      fetch('https://ai-brand-factory-production.up.railway.app/campaigns/' + campaignId, {
         headers: { Authorization: 'Bearer ' + token },
       })
         .then((res) => res.json())
@@ -62,7 +62,7 @@ export default function CampaignDetailPage() {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(
-        'http://localhost:8000/campaigns/' + campaign.id + '/scenes/' + sceneNumber + '/regenerate',
+        'https://ai-brand-factory-production.up.railway.app/campaigns/' + campaign.id + '/scenes/' + sceneNumber + '/regenerate',
         {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + token },
@@ -90,7 +90,7 @@ export default function CampaignDetailPage() {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(
-        'http://localhost:8000/campaigns/' + campaign.id + '/formats',
+        'https://ai-brand-factory-production.up.railway.app/campaigns/' + campaign.id + '/formats',
         {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + token },
@@ -114,7 +114,7 @@ export default function CampaignDetailPage() {
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(
-        'http://localhost:8000/campaigns/' + campaign.id + '/rebuild',
+        'https://ai-brand-factory-production.up.railway.app/campaigns/' + campaign.id + '/rebuild',
         {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + token },
@@ -197,13 +197,13 @@ export default function CampaignDetailPage() {
             <video
               controls
               className="w-full max-w-md mx-auto rounded-2xl border border-[rgba(212,165,116,0.12)] shadow-2xl mb-8"
-              src={'http://localhost:8000' + campaign.final_url}
+              src={'https://ai-brand-factory-production.up.railway.app' + campaign.final_url}
             />
             <div className="flex gap-4 justify-center flex-wrap">
               <button
                 onClick={async () => {
                   try {
-                    const url = 'http://localhost:8000' + campaign.final_url;
+                    const url = 'https://ai-brand-factory-production.up.railway.app' + campaign.final_url;
                     const res = await fetch(url);
                     const blob = await res.blob();
                     const blobUrl = window.URL.createObjectURL(blob);
@@ -264,10 +264,10 @@ export default function CampaignDetailPage() {
                       <video
                         controls
                         className="w-full rounded-lg border border-[rgba(212,165,116,0.12)] mb-3"
-                        src={'http://localhost:8000' + formats.vertical_9x16}
+                        src={'https://ai-brand-factory-production.up.railway.app' + formats.vertical_9x16}
                       />
                       <a
-                        href={'http://localhost:8000' + formats.vertical_9x16}
+                        href={'https://ai-brand-factory-production.up.railway.app' + formats.vertical_9x16}
                         download
                         className="block text-center px-4 py-2 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg text-xs font-semibold transition"
                       >
@@ -287,10 +287,10 @@ export default function CampaignDetailPage() {
                       <video
                         controls
                         className="w-full rounded-lg border border-[rgba(212,165,116,0.12)] mb-3"
-                        src={'http://localhost:8000' + formats.square_1x1}
+                        src={'https://ai-brand-factory-production.up.railway.app' + formats.square_1x1}
                       />
                       <a
-                        href={'http://localhost:8000' + formats.square_1x1}
+                        href={'https://ai-brand-factory-production.up.railway.app' + formats.square_1x1}
                         download
                         className="block text-center px-4 py-2 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg text-xs font-semibold transition"
                       >
@@ -310,10 +310,10 @@ export default function CampaignDetailPage() {
                       <video
                         controls
                         className="w-full rounded-lg border border-[rgba(212,165,116,0.12)] mb-3"
-                        src={'http://localhost:8000' + formats.landscape_16x9}
+                        src={'https://ai-brand-factory-production.up.railway.app' + formats.landscape_16x9}
                       />
                       <a
-                        href={'http://localhost:8000' + formats.landscape_16x9}
+                        href={'https://ai-brand-factory-production.up.railway.app' + formats.landscape_16x9}
                         download
                         className="block text-center px-4 py-2 bg-[#D4A574] hover:bg-[#E5B98A] rounded-lg text-xs font-semibold transition"
                       >
@@ -375,7 +375,7 @@ export default function CampaignDetailPage() {
                       <div className="flex-shrink-0 w-full md:w-40">
                         {hasImage ? (
                           <img
-                            src={'http://localhost:8000' + scene.image_url}
+                            src={'https://ai-brand-factory-production.up.railway.app' + scene.image_url}
                             alt={'Scene ' + scene.number}
                             className="w-full h-40 md:h-40 object-cover rounded-lg border border-[rgba(212,165,116,0.12)]"
                           />
@@ -435,7 +435,7 @@ export default function CampaignDetailPage() {
                               <video
                                 controls
                                 className="mt-3 w-full max-w-md rounded-lg border border-[rgba(212,165,116,0.12)]"
-                                src={'http://localhost:8000' + scene.merged_url}
+                                src={'https://ai-brand-factory-production.up.railway.app' + scene.merged_url}
                               />
                             </details>
                           )}
@@ -447,7 +447,7 @@ export default function CampaignDetailPage() {
                               <video
                                 controls
                                 className="mt-3 w-full max-w-md rounded-lg border border-[rgba(212,165,116,0.12)]"
-                                src={'http://localhost:8000' + scene.video_url}
+                                src={'https://ai-brand-factory-production.up.railway.app' + scene.video_url}
                               />
                             </details>
                           )}
@@ -459,7 +459,7 @@ export default function CampaignDetailPage() {
                               <audio
                                 controls
                                 className="mt-3 w-full max-w-md"
-                                src={'http://localhost:8000' + scene.voice_url}
+                                src={'https://ai-brand-factory-production.up.railway.app' + scene.voice_url}
                               />
                             </details>
                           )}
@@ -481,7 +481,7 @@ export default function CampaignDetailPage() {
                 <div className="flex justify-between">
                   <span className="text-[#8B8B8B]">🎵 الموسيقى</span>
                   <a
-                    href={'http://localhost:8000' + campaign.assets.music_url}
+                    href={'https://ai-brand-factory-production.up.railway.app' + campaign.assets.music_url}
                     target="_blank"
                     className="text-[#D4A574] hover:underline"
                   >
@@ -493,7 +493,7 @@ export default function CampaignDetailPage() {
                 <div className="flex justify-between">
                   <span className="text-[#8B8B8B]">📝 النصوص (SRT)</span>
                   <a
-                    href={'http://localhost:8000' + campaign.assets.captions_url}
+                    href={'https://ai-brand-factory-production.up.railway.app' + campaign.assets.captions_url}
                     target="_blank"
                     className="text-[#D4A574] hover:underline"
                   >

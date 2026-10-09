@@ -26,7 +26,7 @@ export default function AdminCampaignsPage() {
     const token = localStorage.getItem('token');
     if (!token) { router.push('/login'); return; }
 
-    fetch('http://localhost:8000/admin/campaigns?limit=200', {
+    fetch('https://ai-brand-factory-production.up.railway.app/admin/campaigns?limit=200', {
       headers: { Authorization: 'Bearer ' + token },
     })
       .then((res) => {
@@ -144,7 +144,7 @@ export default function AdminCampaignsPage() {
                     </td>
                     <td className="px-4 py-4 text-xs">
                       {c.final_url ? (
-                        <a href={'http://localhost:8000' + c.final_url} target="_blank"
+                        <a href={'https://ai-brand-factory-production.up.railway.app' + c.final_url} target="_blank"
                           className="text-blue-400 hover:underline">
                           مشاهدة
                         </a>

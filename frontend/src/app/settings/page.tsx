@@ -19,7 +19,7 @@ export default function SettingsPage() {
     const token = localStorage.getItem('token');
     if (!token) { router.push('/login'); return; }
 
-    fetch('http://localhost:8000/auth/me', {
+    fetch('https://ai-brand-factory-production.up.railway.app/auth/me', {
       headers: { Authorization: 'Bearer ' + token },
     })
       .then((res) => res.json())
@@ -47,7 +47,7 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/auth/change-password', {
+      const res = await fetch('https://ai-brand-factory-production.up.railway.app/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -45,7 +45,7 @@ export default function BrandBrainPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8000/brands/${brandId}/brain`, {
+      const res = await fetch(`https://ai-brand-factory-production.up.railway.app/brands/${brandId}/brain`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

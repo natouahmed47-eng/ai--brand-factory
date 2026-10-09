@@ -39,7 +39,7 @@ export default function ProductsPage() {
       router.push('/login');
       return;
     }
-    fetch('http://localhost:8000/brands/' + brandId + '/products', {
+    fetch('https://ai-brand-factory-production.up.railway.app/brands/' + brandId + '/products', {
       headers: { Authorization: 'Bearer ' + token },
     })
       .then((res) => res.json())
@@ -60,7 +60,7 @@ export default function ProductsPage() {
     setError('');
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/products', {
+      const res = await fetch('https://ai-brand-factory-production.up.railway.app/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify({ brand_id: brandId, name, description, price }),
@@ -94,7 +94,7 @@ export default function ProductsPage() {
       const formData = new FormData();
       formData.append('file', files[i]);
       try {
-        await fetch('http://localhost:8000/products/' + productId + '/images', {
+        await fetch('https://ai-brand-factory-production.up.railway.app/products/' + productId + '/images', {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + token },
           body: formData,
@@ -106,7 +106,7 @@ export default function ProductsPage() {
 
     // Refetch all products to sync with backend
     try {
-      const res = await fetch('http://localhost:8000/brands/' + brandId + '/products', {
+      const res = await fetch('https://ai-brand-factory-production.up.railway.app/brands/' + brandId + '/products', {
         headers: { Authorization: 'Bearer ' + token },
       });
       const data = await res.json();
@@ -121,7 +121,7 @@ export default function ProductsPage() {
     if (!confirm('هل تريد حذف هذا المنتج؟')) return;
     const token = localStorage.getItem('token');
     try {
-      await fetch('http://localhost:8000/products/' + productId, {
+      await fetch('https://ai-brand-factory-production.up.railway.app/products/' + productId, {
         method: 'DELETE',
         headers: { Authorization: 'Bearer ' + token },
       });
@@ -239,7 +239,7 @@ export default function ProductsPage() {
                   {product.images && product.images.map((img, i) => (
                     <img
                       key={i}
-                      src={'http://localhost:8000' + img}
+                      src={'https://ai-brand-factory-production.up.railway.app' + img}
                       alt={product.name}
                       className="w-full h-24 object-cover rounded-lg border border-[rgba(212,165,116,0.12)]"
                     />
