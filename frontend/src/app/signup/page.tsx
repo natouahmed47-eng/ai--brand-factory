@@ -37,8 +37,8 @@ export default function SignupPage() {
       }
 
       const data = await res.json();
-      if (data.access_token) {
-        localStorage.setItem("token", data.access_token);
+      if ((data.access_token || .token || data.token)) {
+        localStorage.setItem("token", (data.access_token || .token || data.token));
       }
       router.push("/dashboard");
     } catch {
