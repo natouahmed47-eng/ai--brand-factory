@@ -32,14 +32,8 @@ app = FastAPI(title="AI Brand Factory API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://ai-brand-factory-snowy.vercel.app",
-        "https://ai-brand-factory.vercel.app",
-        "https://*.vercel.app",
-    ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
