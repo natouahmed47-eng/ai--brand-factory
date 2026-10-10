@@ -1179,7 +1179,11 @@ def generate_scene_video_wan(visual_description, duration=5, brand_colors=None, 
 
     colors_str = ""
     if brand_colors:
-        colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
+        try:
+            colors_str = " Brand colors: " + ", ".join([str(x) for x in brand_colors if x]) + "."
+        except Exception as e:
+            print("[COLORS_WARN]", e)
+            colors_str = ""
 
     prompt = "Cinematic advertising video. " + str(visual_description) + colors_str
 
@@ -1465,14 +1469,17 @@ def generate_scene_image_agnes(visual_description, brand_colors=None, aspect_rat
     from dotenv import load_dotenv
     load_dotenv()
 
-    api_key = os.getenv("AGNES_API_KEY")
+    api_key = os.getenv("AGNES_API_KEY") or ""
+    if not api_key:
+        print("[AGNES_ERROR] AGNES_API_KEY not set")
+        return None
     headers = {"Authorization": "Bearer " + api_key, "Content-Type": "application/json"}
 
     colors_str = ""
     if brand_colors:
         colors_str = " Brand colors: " + ", ".join(brand_colors) + "."
 
-    prompt = "Professional advertising photograph. " + str(visual_description) + colors_str
+    prompt = "Professional advertising photograph. " + (str(visual_description) if visual_description else "") + colors_str
 
     if aspect_ratio == "9:16":
         size = "768x1024"
