@@ -1627,6 +1627,138 @@ def generate_scene_video_dashscope(visual_description, duration=5, brand_colors=
         print("[DASHSCOPE_ERROR] " + str(e))
         return None
 
+# ============================================
+# Magic Hour: Image-to-Video (primary provider)
+# ============================================
+
+def _upload_to_cloudinary(local_path):
+    """Upload a local image to Cloudinary. Returns public URL or None."""
+    try:
+        import cloudinary.uploader
+        from pathlib import Path as _P
+        p = _P(str(local_path).lstrip("/"))
+        if not p.exists():
+            print("[CLOUD_UPLOAD] File not found:", str(local_path))
+            return None
+        result = cloudinary.uploader.upload(
+            str(p),
+            folder="abf/scenes",
+            resource_type="image",
+        )
+        return result.get("secure_url")
+    except Exception as e:
+        print("[CLOUD_UPLOAD_ERR]", str(e)[:200])
+        return None
+
+
+def generate_scene_video_i2v_magichour(image_path, visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
+    """Generate video via Magic Hour Image-to-Video API."""
+    import os, time, uuid, requests
+    from pathlib import Path as _P
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    api_key = os.getenv("MAGIC_HOUR_API_KEY")
+    if not api_key:
+        print("[MH] MAGIC_HOUR_API_KEY missing")
+        return None
+
+    # 1. Prepare public image URL
+    if str(image_path).startswith("http"):
+        img_url = image_path
+    else:
+        img_url = _upload_to_cloudinary(image_path)
+    if not img_url:
+        print("[MH] Could not get public image URL")
+        return None
+    print("[MH] Image URL:", img_url)
+
+    # 2. Build prompt
+    colors_str = ""
+    if brand_colors:
+        try:
+            colors_str = " Brand colors: " + ", ".join([str(x) for x in brand_colors if x]) + "."
+        except Exception:
+            colors_str = ""
+    prompt = "Cinematic advertising video. " + (str(visual_description) if visual_description else "") + colors_str
+
+    # 3. Resolution
+    resolution = "720p"
+
+    # 4. Create job
+    headers = {
+        "Authorization": "Bearer " + api_key,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+    payload = {
+        "name": "ABF Scene " + str(uuid.uuid4())[:8],
+        "end_seconds": duration,
+        "model": "wan-2.2",
+        "resolution": resolution,
+        "audio": False,
+        "style": {"prompt": prompt},
+        "assets": {"image_file_path": img_url},
+    }
+
+    try:
+        r = requests.post(
+            "https://api.magichour.ai/v1/image-to-video",
+            headers=headers, json=payload, timeout=60,
+        )
+    except Exception as e:
+        print("[MH_CREATE_ERR]", str(e)[:200])
+        return None
+
+    if r.status_code not in (200, 201):
+        print("[MH_CREATE_ERR]", r.status_code, r.text[:400])
+        return None
+
+    data = r.json()
+    task_id = data.get("id")
+    print("[MH] Task ID:", task_id, "| Credits:", data.get("credits_charged"))
+    if not task_id:
+        return None
+
+    # 5. Poll
+    for i in range(120):
+        time.sleep(10)
+        try:
+            sr = requests.get(
+                "https://api.magichour.ai/v1/video-projects/" + task_id,
+                headers=headers, timeout=30,
+            )
+            if sr.status_code != 200:
+                continue
+            sd = sr.json()
+            status = sd.get("status")
+            print("[MH] Status:", status)
+
+            if status == "complete":
+                downloads = sd.get("downloads") or []
+                if not downloads:
+                    return None
+                video_url = downloads[0].get("url")
+                if not video_url:
+                    return None
+                fn = str(uuid.uuid4()) + ".mp4"
+                folder = _P("uploads/videos")
+                folder.mkdir(parents=True, exist_ok=True)
+                lp = folder / fn
+                vd = requests.get(video_url, timeout=300)
+                with open(lp, "wb") as f:
+                    f.write(vd.content)
+                return "/uploads/videos/" + fn
+            elif status in ("error", "canceled"):
+                print("[MH_ERR] Job failed:", sd.get("error"))
+                return None
+        except Exception as e:
+            print("[MH_POLL_ERR]", str(e)[:100])
+
+    print("[MH] Timeout")
+    return None
+
+
 def generate_scene_video_i2v(image_path, visual_description, duration=5, brand_colors=None, aspect_ratio="9:16"):
     """يولّد فيديو من صورة المنتج (Image-to-Video) عبر Wan 2.2"""
     import os
