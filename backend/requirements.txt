@@ -20,3 +20,4 @@ aiofiles
 Pillow
 numpy
 replicate
+cloudinary

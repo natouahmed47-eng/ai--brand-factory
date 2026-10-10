@@ -28,6 +28,19 @@ from payments import (
 
 load_dotenv()
 
+# ============================================
+# Cloudinary setup (persistent storage)
+# ============================================
+import cloudinary
+import cloudinary.uploader
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True,
+)
+
 app = FastAPI(title="AI Brand Factory API")
 
 app.add_middleware(
@@ -379,7 +392,20 @@ def upload_brand_logo(
     extracted = extract_colors(str(filepath), num_colors=5)
 
     # تحديث قاعدة البيانات
-    brand.logo_url = f"/uploads/{filename}"
+        # Upload to Cloudinary
+    try:
+        up = cloudinary.uploader.upload(
+            str(filepath),
+            folder="abf/logos",
+            public_id=f"brand_{brand_id}",
+            overwrite=True,
+            resource_type="image",
+        )
+        brand.logo_url = up["secure_url"]
+        print("[CLOUDINARY] logo:", brand.logo_url)
+    except Exception as e:
+        print("[CLOUDINARY_ERROR]", str(e))
+        brand.logo_url = f"/uploads/{filename}"
     brand.colors = {"palette": extracted}
     db.commit()
     db.refresh(brand)
@@ -1046,7 +1072,19 @@ def upload_product_image(
 
     import json as _json_img
     images = list(product.images or [])
-    images.append("/uploads/products/" + filename)
+    try:
+        up_img = cloudinary.uploader.upload(
+            str(filepath),
+            folder="abf/products",
+            public_id=f"p_{product_id}_{str(uuid.uuid4())[:8]}",
+            overwrite=True,
+            resource_type="image",
+        )
+        images.append(up_img["secure_url"])
+        print("[CLOUDINARY] product image:", up_img["secure_url"])
+    except Exception as e:
+        print("[CLOUDINARY_ERROR]", str(e))
+        images.append("/uploads/products/" + filename)
     images_json = _json_img.dumps(images)
     db.execute(
         text("UPDATE products SET images = CAST(:i AS jsonb) WHERE id = :id"),
